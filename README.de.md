@@ -7,7 +7,7 @@ Status lesen, Dateien verwalten, Kamerabilder ansehen, Achsen referenzieren, Dru
 
 > **Sicherheit zuerst:** Heizungen und Motoren sind gefährlich. Alpha-Software ohne Gewährleistung, nie unbeaufsichtigt betreiben, Notaus in Reichweite halten. Bitte lies [SAFETY.md](SAFETY.md) vor der ersten Benutzung. / *Heaters and motors are dangerous. Alpha software, no warranty, never run unattended. Read [SAFETY.md](SAFETY.md) first.*
 >
-> **Repository:** https://github.com/ATOMICMBAG/Duet3D-MCP
+> **Repository:** https://github.com/ATOMICMBAG/Duet-MCP
 >
 > **Lizenz:** MIT (siehe `LICENSE`).
 >

@@ -11,13 +11,13 @@
     "3d-printing",
     "claude"
   ],
-  "homepage": "https://github.com/ATOMICMBAG/Duet3D-MCP#readme",
+  "homepage": "https://github.com/ATOMICMBAG/Duet-MCP#readme",
   "bugs": {
-    "url": "https://github.com/ATOMICMBAG/Duet3D-MCP/issues"
+    "url": "https://github.com/ATOMICMBAG/Duet-MCP/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ATOMICMBAG/Duet3D-MCP.git"
+    "url": "git+https://github.com/ATOMICMBAG/Duet-MCP.git"
   },
   "license": "MIT",
   "type": "module",
