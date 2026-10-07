@@ -17,7 +17,7 @@ duet-mcp lets an AI assistant operate a machine with **heaters and motors**. Hea
 
 ## What the server protects (second layer)
 
-The first layer stays the firmware (RepRapFirmware): temperature limits (`M143`), heater fault monitoring, axis limits (`M208`), endstops. The server checks additionally, and earlier. The full list of numbered rules is in [SAFETY_RULES.md](SAFETY_RULES.md) (German for now). In short:
+The first layer stays the firmware (RepRapFirmware): temperature limits (`M143`), heater fault monitoring, axis limits (`M208`), endstops. The server checks additionally, and earlier. The full list of numbered rules is in [SAFETY_RULES.md](SAFETY_RULES.md). German: [SAFETY_RULES.de.md](SAFETY_RULES.de.md). In short:
 
 - **Read-only by default.** Control tools do not exist until you set `DUET_READ_ONLY=false`.
 - **Human approval** for starting a print, homing, heating and other risky commands. The server asks the question itself (MCP elicitation or a system dialog). The AI cannot approve for you, and the model's own `confirm` flag is ignored.
@@ -76,7 +76,7 @@ Die Software ist eine frühe Testversion (Alpha), wird ohne jede Gewährleistung
 
 ## Was der Server schützt (zweite Ebene)
 
-Die erste Ebene bleibt die Firmware (RepRapFirmware): Temperaturgrenzen (`M143`), Überwachung der Heizungen, Achsgrenzen (`M208`), Endstopps. Der Server prüft zusätzlich und früher. Die vollständige Liste steht in [SAFETY_RULES.md](SAFETY_RULES.md). Kurz:
+Die erste Ebene bleibt die Firmware (RepRapFirmware): Temperaturgrenzen (`M143`), Überwachung der Heizungen, Achsgrenzen (`M208`), Endstopps. Der Server prüft zusätzlich und früher. Die vollständige Liste steht in [SAFETY_RULES.de.md](SAFETY_RULES.de.md). Kurz:
 
 - **Nur-Lesen als Standard.** Steuerwerkzeuge sind aus, bis du `DUET_READ_ONLY=false` setzt.
 - **Zustimmung des Menschen** für Druckstart, Referenzieren, Heizen und andere riskante Befehle. Die Frage stellt der Server selbst (MCP-Elicitation oder Systemdialog), die KI kann nicht für dich zustimmen.

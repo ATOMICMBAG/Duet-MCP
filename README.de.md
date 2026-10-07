@@ -13,7 +13,7 @@ Status lesen, Dateien verwalten, Kamerabilder ansehen, Achsen referenzieren, Dru
 >
 > **Inoffizielles Community-Projekt.** Nicht von Duet3D. Der Name `duet-mcp` bewusst ohne Firmenmarke.
 >
-> **Status: Alpha.** Getestet ist bisher nur eine **Duet 2 WiFi** mit **RepRapFirmware 3.2.x** (Standalone), kartesischer Drucker. Heizungen und Motoren sind gefährlich: nie unbeaufsichtigt betreiben, Notaus in Reichweite halten. Siehe [SAFETY_RULES.md](SAFETY_RULES.md).
+> **Status: Alpha.** Getestet ist bisher nur eine **Duet 2 WiFi** mit **RepRapFirmware 3.2.x** (Standalone), kartesischer Drucker. Heizungen und Motoren sind gefährlich: nie unbeaufsichtigt betreiben, Notaus in Reichweite halten. Siehe [SAFETY_RULES.de.md](SAFETY_RULES.de.md).
 
 ```
 Handy / PC ──► Claude Code ──► duet-mcp (lokal, stdio) ──► Duet (HTTP, LAN/WLAN)
@@ -97,7 +97,7 @@ Legende: `[x]` erledigt, `[ ]` offen, `[?]` offene Entscheidung.
 ## Stand: bereits umgesetzt
 - [x] Zugriff auf Duet (`rr_*`), Sitzung, Anfragen nacheinander (schont die Duet 2)
 - [x] Maschinenprofil aus `config.g` plus Live-Werten der Firmware (Achsgrenzen, Heizungslimits, Kinematik)
-- [x] Guard für `send_gcode` (gesperrt / bestätigungspflichtig / Grenzen), Details in `SAFETY_RULES.md`
+- [x] Guard für `send_gcode` (gesperrt / bestätigungspflichtig / Grenzen), Details in `SAFETY_RULES.de.md`
 - [x] Referenzieren: Z, X, Y; Freifahren vor dem Anfahren; Zeitüberschreitung löst `M112` aus
 - [x] Kameras: HTTP, MJPEG, RTSP, lokale Webcam (`dshow:`)
 - [x] Audit-Log, Heizungs-Wächter, `.env`, Passwort-Schwärzung, Fehlerantworten der Duet werden zu Fehlern

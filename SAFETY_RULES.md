@@ -1,40 +1,42 @@
-# Sicherheitsregeln des Duet3D-MCP-Servers
+# Safety rules of the Duet-MCP server
 
-Die Firmware (RepRapFirmware) bleibt die erste Sicherheitsebene (Heizungs-Fehlerüberwachung, Endstopps, M208-Grenzen).
-Dieser Server ist die zweite Ebene. Er ersetzt weder Notaus noch Aufsicht.
+*Deutsch: [SAFETY_RULES.de.md](SAFETY_RULES.de.md).*
 
-## Umgesetzt
-| # | Regel | Wo |
-|---|-------|----|
-| 1 | Steuerwerkzeuge sind aus, solange `DUET_READ_ONLY` nicht `false` ist | `config.ts`, `index.ts` |
-| 2 | `emergency_stop` (M112) ist immer verfügbar; M999 braucht `confirm=true` | `index.ts`, `guard.ts` |
-| 3 | Konfigurations-, Firmware-, Netzwerk- und Limit-Befehle sind in `send_gcode` gesperrt (M208, M143, M906, M92, M997, M551 ...) | `guard.ts` |
-| 4 | Heizen, G28/G29/G30/G32/G92, M500/M502, Relativfahrten >50 mm, `G1 H…` brauchen die **Zustimmung des Menschen**: Der Server fragt selbst (Elicitation oder Systemdialog), das `confirm`-Flag des Modells wird ignoriert. Dasselbe gilt für `start_job`, `home_axes` und `resume_job` mit `force` | `guard.ts`, `confirm.ts` |
-| 5 | Temperaturlimits (Bett/Düse) gelten auch mit `confirm=true` | `guard.ts` |
-| 6 | Absolute Fahrten werden gegen die Live-Achsgrenzen der Firmware geprüft | `guard.ts`, `profile.ts` |
-| 7 | Absolute Fahrten auf nicht referenzierten Achsen werden abgelehnt | `guard.ts` |
-| 8 | Makros nur aus der Allowlist `DUET_MACROS` | `guard.ts` |
-| 9 | **Freifahren vor Referenzieren:** Ist ein Endstopp schon ausgelöst, fährt der Server zuerst 5 mm weg, prüft, dass er freigibt, und fährt erst dann hin. Bleibt er ausgelöst, wird nicht referenziert | `homing.ts` |
-| 10 | Referenzieren nur im Zustand `idle`, eine Achse nach der anderen, danach Prüfung `homed` | `homing.ts` |
-| 11 | Zeitüberschreitung beim Referenzieren löst M112 aus | `homing.ts` |
-| 12 | `start_job` nur im Zustand `idle` und wenn alle Achsen referenziert sind | `index.ts` |
-| 13 | Uploads nach `0:/sys` sind gesperrt | `index.ts` |
-| 14 | Passwörter (M551, M587 ...) werden aus gelesenen Dateien geschwärzt | `profile.ts` |
-| 15 | Audit-Log aller Steueraktionen (`duet-mcp-audit.log`, JSON pro Zeile) | `index.ts` |
-| 16 | Anfragen laufen nacheinander (Duet 2 hat wenig RAM und wenige Sitzungen) | `duet.ts` |
+The firmware (RepRapFirmware) stays the first safety layer (heater fault monitoring, endstops, `M208` limits).
+This server is the second layer. It replaces neither an emergency stop nor supervision by a person. See [SAFETY.md](SAFETY.md) for the disclaimer and the hardware requirements.
 
-| 17 | Homing-Reihenfolge Z, X, Y (Z zuerst, hebt den Kopf vom Bett) | `homing.ts` |
-| 18 | Kinematik-bewusst: Die XYZ-Box wird nur bei cartesian/core* geprüft. Bei Delta, SCARA, Polar braucht jede absolute Bewegung `confirm=true` | `guard.ts`, `profile.ts` |
-| 19 | Heizungs-Wächter: Heizziel an, Maschine `idle` und kein Job länger als `DUET_HEAT_IDLE_MINUTES` (Standard 15, 0 = aus), dann Ziele auf 0 und Eintrag im Audit-Log. Wirkt nur in die sichere Richtung | `watchdog.ts`, `index.ts` |
-| 20 | Druck-Supervisor im Server: Übertemperatur und Durchgehen der Heizung (Heizungen aus, bei Job zusätzlich Pause), Heizungsfehler, Temperaturabweichung nach dem Einpendeln, Aufheiz-Zeitüberschreitung (Pause), Stillstand des Fortschritts (Meldung oder Pause) | `supervisor.ts`, `index.ts` |
-| 21 | Der Supervisor sendet nur Befehle, wenn `DUET_READ_ONLY=false`. Sonst meldet er nur ("Aktion übersprungen") | `index.ts` |
-| 22 | Ereignisse (auch Verbindungsverlust, abgelehntes Passwort, Job zu früh beendet) im Audit-Log und in `job_status` | `index.ts` |
-| 23 | `cancel_job` pausiert zuerst; `resume_job` verweigert vor der ersten Schicht und bei kalter Düse; Antworten `Error` der Duet werden zu Fehlern | `jobcontrol.ts`, `duet.ts` |
-| 24 | Geschwindigkeitsprofil nur zwischen 10 und 150 %; der Server setzt `M220` nur bei Stufenwechsel und stellt nach dem Job auf 100 % zurück, wenn er selbst gesetzt hat | `speedprofile.ts` |
+## Implemented
+| # | Rule | Where |
+|---|------|-------|
+| 1 | Control tools are off unless `DUET_READ_ONLY` is `false` | `config.ts`, `index.ts` |
+| 2 | `emergency_stop` (`M112`) is always available; `M999` needs `confirm=true` | `index.ts`, `guard.ts` |
+| 3 | Configuration, firmware, network and limit commands are blocked in `send_gcode` (`M208`, `M143`, `M906`, `M92`, `M997`, `M551` ...) | `guard.ts` |
+| 4 | Heating, `G28`/`G29`/`G30`/`G32`/`G92`, `M500`/`M502`, relative moves over 50 mm and `G1 H…` need the **approval of the human**: the server asks itself (elicitation or system dialog), the model's `confirm` flag is ignored. The same holds for `start_job`, `home_axes` and `resume_job` with `force` | `guard.ts`, `confirm.ts` |
+| 5 | Temperature limits (bed/nozzle) apply even with `confirm=true` | `guard.ts` |
+| 6 | Absolute moves are checked against the live axis limits of the firmware | `guard.ts`, `profile.ts` |
+| 7 | Absolute moves on axes that are not homed are rejected | `guard.ts` |
+| 8 | Macros only from the allowlist `DUET_MACROS` | `guard.ts` |
+| 9 | **Back off before homing:** if an endstop is already triggered, the server first moves 5 mm away, checks that it releases, and only then approaches it. If it stays triggered, it does not home | `homing.ts` |
+| 10 | Homing only in state `idle`, one axis after the other, then a `homed` check | `homing.ts` |
+| 11 | A timeout while homing triggers `M112` | `homing.ts` |
+| 12 | `start_job` only in state `idle` and when all axes are homed | `index.ts` |
+| 13 | Uploads to `0:/sys` are blocked | `index.ts` |
+| 14 | Passwords (`M551`, `M587` ...) are redacted from files that are read | `profile.ts` |
+| 15 | Audit log of all control actions (`duet-mcp-audit.log`, one JSON per line) | `index.ts` |
+| 16 | Requests run one after the other (a Duet 2 has little RAM and few sessions) | `duet.ts` |
+| 17 | Homing order Z, X, Y (Z first, lifts the head off the bed) | `homing.ts` |
+| 18 | Kinematics aware: the XYZ box is only checked for Cartesian/core*. On Delta, SCARA and Polar every absolute move needs `confirm=true` | `guard.ts`, `profile.ts` |
+| 19 | Idle-heater watchdog: a heater target is set, the machine is `idle` and there is no job for longer than `DUET_HEAT_IDLE_MINUTES` (default 15, 0 = off): targets go to 0 and an audit log entry is written. It only ever acts in the safe direction | `watchdog.ts`, `index.ts` |
+| 20 | Print supervisor in the server: over-temperature and heater runaway (heaters off, plus pause during a job), heater faults, temperature deviation after settling, heat-up timeout (pause), stalled progress (warning or pause) | `supervisor.ts`, `index.ts` |
+| 21 | The supervisor only sends commands when `DUET_READ_ONLY=false`. Otherwise it only reports ("action skipped") | `index.ts` |
+| 22 | Events (also lost connection, rejected password, job ended early) go to the audit log and to `job_status` | `index.ts` |
+| 23 | `cancel_job` pauses first; `resume_job` refuses before the first layer and with a cold nozzle; replies starting with `Error` from the Duet become errors | `jobcontrol.ts`, `duet.ts` |
+| 24 | Speed profile only between 10 and 150 %; the server sends `M220` only when a step changes and resets to 100 % after the job if it set the speed itself | `speedprofile.ts` |
 
-## Geplant
-- Rückfallebene, wenn der MCP-Server selbst nicht läuft (Claude beendet, PC aus): Die Duet druckt dann allein weiter. Das lässt sich nur in der Firmware lösen (Filamentsensor, Makros, Zeitlimits), nicht im Server.
-- Vorfluge für Serienproduktion: Erstteil-Freigabe durch den Menschen, Stückzahllimit, Kamera-Check pro Layer.
-- Vorbedingung für Heizen: Thermistor plausibel (kein Kurzschluss/Abriss), Temperatursprünge melden.
-- Filament- und Extrusionsprüfung: sehr lange Einzelextrusionen ablehnen, Kaltextrusion der Firmware überlassen.
-- Zustimmung "für die nächsten N Minuten" statt bei jeder Aktion (heute wird jedes Mal gefragt).
+## Planned
+- A fallback for when the MCP server itself is not running (Claude closed, PC off): the Duet then keeps printing on its own. This can only be solved in the firmware (filament monitor, macros, time limits), not in the server.
+- Pre-checks for series production: first-part release by the human, piece limit, camera check per layer.
+- Precondition for heating: thermistor plausible (no short circuit or break), report temperature jumps.
+- Filament and extrusion checks: reject very long single extrusions, leave cold extrusion to the firmware.
+- Approval "for the next N minutes" instead of every action (today it asks every time).
+- Resume after a restart with `resurrect.g` (`M916`), with a mandatory reminder: the printed part must not have changed, only the head position may.
