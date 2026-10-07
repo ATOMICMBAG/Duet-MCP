@@ -8,6 +8,7 @@ import { checkGcode } from "./guard.js";
 import { grabFrame, listDshowDevices } from "./camera.js";
 import { mergeLive, parseConfig, redactSecrets, type MachineProfile } from "./profile.js";
 import { homeAxes, orderAxes } from "./homing.js";
+import { describeCompat, formatCompat } from "./compat.js";
 import { makeConfirmer, parseConfirmMode, systemDialog, type ConfirmRequest } from "./confirm.js";
 import { SpeedGovernor, formatSpeedProfile, parseSpeedProfile, type SpeedStep } from "./speedprofile.js";
 import { cancelJob, resumeJob } from "./jobcontrol.js";
@@ -92,6 +93,18 @@ readTool("get_status", { description: "Machine state: status, temperatures, axis
     axes: move,
     job: { file: job.file?.fileName, layer: job.layer, duration: job.duration, filePosition: job.filePosition, size: job.file?.size },
   });
+});
+
+readTool("get_machine_info", { description: "Board, firmware version and how far this server has been verified against it (tested / expected / unsupported), plus uptime. Use it first to know what you are talking to.", inputSchema: {} }, async () => {
+  const [boards, state] = await Promise.all([duet.model("boards"), duet.model("state")]);
+  const c = describeCompat(boards, { apiLevel: duet.apiLevel, emulated: duet.emulated });
+  const main = boards?.[0] ?? {};
+  return text([formatCompat(c), `API level ${duet.apiLevel}, uptime ${Math.round(state?.upTime ?? 0)} s`, main.mcuTemp?.current !== undefined ? `MCU temperature ${main.mcuTemp.current} C` : "", main.vIn?.current !== undefined ? `Supply voltage ${main.vIn.current} V` : "", `Boards: ${(boards ?? []).map((b: any) => b.name ?? b.shortName).join(", ")}`].filter(Boolean).join("\n"));
+});
+
+readTool("get_sensors", { description: "Extra sensors and gadgets: probes (e.g. BLTouch), filament monitors, analog temperature sensors and endstops, as the firmware reports them. Read-only.", inputSchema: {} }, async () => {
+  const s = await duet.model("sensors");
+  return json({ endstops: s?.endstops ?? [], probes: s?.probes ?? [], filamentMonitors: s?.filamentMonitors ?? [], analogSensors: s?.analogSensors ?? [] });
 });
 
 readTool("get_machine_profile", { description: "Safety-relevant settings parsed from config.g (axis limits, heater max temps, motor currents). Read this before planning any motion or heating.", inputSchema: { refresh: z.boolean().optional() } }, async ({ refresh }) => json(await getProfile(refresh)));
@@ -295,10 +308,18 @@ const idleMinutes = Number(process.env.DUET_HEAT_IDLE_MINUTES ?? 15);
 const watchdog = new HeatWatchdog(cfg.readOnly ? 0 : idleMinutes);
 
 let failStreak = 0;
+let compatChecked = false;
 async function superviseTick(): Promise<number> {
   try {
     const s = await collect();
     failStreak = 0;
+    if (!compatChecked) { // once: tell the user early if this board/firmware is outside what the server supports
+      compatChecked = true;
+      try {
+        const c = describeCompat(await duet.model("boards"), { apiLevel: duet.apiLevel, emulated: duet.emulated });
+        if (c.support === "unsupported" || c.support === "unknown") notify([{ t: now(), level: "warning", code: "compatibility", message: formatCompat(c).replace(/\n\s*-/g, " ·") }]);
+      } catch { /* boards not readable: get_machine_info will say so */ }
+    }
     lastSample = s;
     notify(conn.ok(s.t));
     const r = supervisor.evaluate(s);

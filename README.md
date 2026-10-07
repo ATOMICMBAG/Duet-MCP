@@ -57,8 +57,24 @@ claude mcp add duet -- node "<Pfad>/dist/index.js"
 
 ## Werkzeuge (Stand heute)
 
-Lesen: `get_status`, `get_machine_profile`, `list_files`, `read_file` (Passwörter geschwärzt), `get_endstops`, `get_camera_snapshot`, `list_local_cameras`, `preflight_gcode`, `job_status`, `emergency_stop`.
+Lesen: `get_status`, `get_machine_profile`, `get_machine_info`, `get_sensors`, `list_files`, `read_file` (Passwörter geschwärzt), `get_endstops`, `get_camera_snapshot`, `list_local_cameras`, `preflight_gcode`, `job_status`, `emergency_stop`.
 Steuern (nur mit `DUET_READ_ONLY=false`): `send_gcode` (mit Guard), `home_axes`, `start_job`, `pause_job`, `resume_job`, `cancel_job`, `upload_file`, `set_speed_profile`.
+
+## Kompatibilität
+
+Ehrlicher Stand: **Getestet ist nur eine Duet 2 WiFi mit RepRapFirmware 3.2.2 (Standalone, kartesischer Drucker).** Alles andere ist aus der dokumentierten HTTP-Schnittstelle und dem offiziellen Connector (`@duet3d/connectors`) abgeleitet, aber nicht geprüft. Das Werkzeug `get_machine_info` zeigt, mit welchem Board und welcher Firmware der Server spricht und wie weit das geprüft ist; bei einer nicht unterstützten Kombination warnt der Server beim Start.
+
+| Board | Firmware | Modus | Stand |
+|---|---|---|---|
+| Duet 2 WiFi | 3.2.x | Standalone | **getestet** |
+| Duet 2 WiFi / Ethernet / Maestro | 3.0–3.6 | Standalone | erwartet kompatibel, ungetestet |
+| Duet 3 Mini 5+, MB6HC, MB6XD (WiFi/Ethernet) | 3.3–3.6 | Standalone | erwartet kompatibel, ungetestet |
+| Duet 3 mit Einplatinencomputer (Raspberry Pi) | beliebig | SBC (DuetWebServer) | **nicht unterstützt** (andere Schnittstelle, geplant) |
+| beliebiges Board | 2.x | – | **nicht unterstützt** (kein Objektmodell), klare Fehlermeldung |
+
+Was der Server dafür umsetzt: Sitzungsschlüssel (`rr_connect?sessionKey=yes`, Header `X-Session-Key`), damit DWC und der Server auf demselben PC keine Sitzung teilen; Prüfung der API-Stufe; Upload mit CRC32-Prüfsumme und Wiederholung bei Übertragungsfehlern; Erkennung des emulierten SBC-Modus (`isEmulated`). Der Sitzungsschlüssel ist auf der getesteten Firmware 3.2.2 nicht aktiv (sie liefert keinen), er ist nur mit der simulierten Duet getestet.
+
+**Zusätzliche Sensoren und Zubehör** liest `get_sensors` (Sonden wie BLTouch, Filamentsensoren, analoge Temperatursensoren, Endstopps). An der getesteten Duet sind außer den drei Endstopps keine angeschlossen. Wer ein anderes Board oder Zubehör hat, ist eingeladen zu testen: bitte `get_machine_info` und `get_sensors` ausführen und das Ergebnis (ohne IP und Passwort) als Issue melden.
 
 ## Entwicklung
 
@@ -82,7 +98,7 @@ Legende: `[x]` erledigt, `[ ]` offen, `[?]` offene Entscheidung.
 - [x] Referenzieren: Z, X, Y; Freifahren vor dem Anfahren; Zeitüberschreitung löst `M112` aus
 - [x] Kameras: HTTP, MJPEG, RTSP, lokale Webcam (`dshow:`)
 - [x] Audit-Log, Heizungs-Wächter, `.env`, Passwort-Schwärzung, Fehlerantworten der Duet werden zu Fehlern
-- [x] Tests (134), darunter End-to-End gegen eine simulierte Duet, plus ein echter Testlauf auf der Duet (siehe unten)
+- [x] Tests (150), darunter End-to-End gegen eine simulierte Duet, plus ein echter Testlauf auf der Duet (siehe unten)
 
 ## A. Aus den Wegwerf-Skripten ins Produkt
 - [x] **A0 Bekannte Fehler beheben.** `cancel_job` pausiert einen laufenden Job zuerst (`M25`), dann `M0` (die Firmware lehnt `M0` sonst ab); lässt die Heizziele unverändert. `resume_job` verweigert, wenn vor der ersten Schicht pausiert wurde oder eine Heizung nicht auf Temperatur ist (`resume.g` würde 10 mm in die Luft extrudieren), außer mit `force=true`. Code: `src/jobcontrol.ts`, Tests: `test/jobcontrol.test.ts`.
@@ -126,8 +142,9 @@ Legende: `[x]` erledigt, `[ ]` offen, `[?]` offene Entscheidung.
   *Noch offen dazu:* Ein echter Ablauf in Claude Code (CLI und Desktop) mit dem Elicitation-Dialog; macOS- und Linux-Dialog; Verhalten, wenn Claude Code den Elicitation-Aufruf für Hintergrund-Aufgaben anders behandelt.
 - [x] **B2 Mock-Duet und CI** (`test/helpers/mockDuet.ts`, `test/helpers/bootServer.ts`, `.github/workflows/ci.yml`). Die simulierte Duet spricht die `rr_*`-Endpunkte des Standalone-Modus: `rr_connect` (Passwort, keine freie Sitzung), `rr_model`, `rr_gcode`/`rr_reply`, `rr_filelist` (mit Seiten wie die Firmware), `rr_upload`, `rr_download`, `rr_disconnect`, Sitzungsablauf (401) und veränderbarer Zustand (Status, Heizungen, Job, Betriebszeit, Geschwindigkeitsfaktor). `bootServer()` startet den echten Server dagegen und verbindet einen MCP-Client, optional mit Elicitation. Damit kann jeder ohne Drucker testen. Die CI (GitHub Actions) baut und testet bei jedem Push und Pull Request auf Ubuntu und Windows mit Node 22 und 24; Systemdialoge sind dort abgeschaltet.
   *Abnahme:* `npm test` testet Homing, Jobs, Fehlerfälle, Wiederverbinden, Supervisor, Bestätigung, Geschwindigkeitsprofil und Dateien gegen den Mock (134 Tests, lokal grün). *Noch offen dazu:* Die CI muss nach dem ersten Push auf GitHub tatsächlich grün sein, das ist bisher nur lokal unter Windows mit Node 25 geprüft.
-- [ ] **B3 Versionsmatrix.** Ziel: RRF 3.2 (getestet) bis aktuell, Duet 2 und Duet 3 (Standalone), später Duet 3 im SBC-Modus (DuetWebServer-REST). Unterschiede im Objektmodell dokumentieren; Testgeräte aus der Community suchen. Prüfen, ob `@duet3d/connectors` den eigenen Client ersetzen oder ergänzen soll.
-  *Abnahme:* Tabelle "getestet mit" in der README, jede Zeile mit Gerät und Firmware.
+- [x] **B3 Versionsmatrix** (auf die verfügbaren Geräte begrenzt: Duet 2 und Duet 3 Standard-Boards; Community-Tests sind später willkommen). Tabelle und ehrliche Statusangabe stehen in der README ("Kompatibilität"), im Code `src/compat.ts` (Board- und Firmware-Erkennung, Werkzeug `get_machine_info`, Warnung beim Start). Der Client wurde nach dem offiziellen Connector um Sitzungsschlüssel, Prüfung der API-Stufe, CRC32-Upload mit Wiederholung und Erkennung des emulierten SBC-Modus ergänzt (`src/duet.ts`, `src/crc32.ts`). Neues Werkzeug `get_sensors` für Sonden, Filamentsensoren und analoge Sensoren.
+  *Abnahme (erfüllt):* 19 neue Tests (Board-Erkennung, Sitzungsschlüssel, zwei Clients nebeneinander, API-Stufe 0, CRC-Wiederholung, beide Werkzeuge); auf der echten Duet 2 WiFi: Board als "getestet" erkannt, zweite Sitzung neben der ersten, Upload mit Prüfsumme akzeptiert (identische Größe).
+  *Noch offen dazu:* Tests auf Duet 2 Ethernet/Maestro, Duet 3 und neuerer Firmware (Community); SBC-Modus über die REST-Schnittstelle (`@duet3d/connectors` RestConnector); ob die Firmware 3.2 den CRC wirklich prüft, ist nicht bewiesen (er wird gesendet und akzeptiert). `@duet3d/connectors` ist als Abhängigkeit installiert, wird aber noch nicht benutzt; die Entscheidung dazu fällt mit B7 (Lizenz).
 - [x] **B4 Sicherheitstext ganz vorne** (`SAFETY.md`, Hinweis ganz oben in der README, zweisprachig in den Kernaussagen). Enthält Haftungsausschluss, Nur-Lesen als Standard, "nie unbeaufsichtigt", was der Server schützt und was er **nicht** erkennen kann (klemmendes Filament, Feuer, Ausfall des Servers, defekte Hardware), Voraussetzungen an die Hardware (Firmware-Schutz testen, Sicherung, Rauchmelder, Notaus), Betriebsregeln und den Meldeweg für Sicherheitslücken.
   *Noch offen dazu:* Gegenlesen durch eine zweite Person (am besten aus der Duet3D-Community), englische Gesamtfassung, Meldeweg konkret eintragen, sobald das Repository öffentlich ist.
 - [ ] **B5 Gute Tool-Beschreibungen, Prompts, Resources.** Wenige klare Werkzeuge, kurze Antworten (kein Objektmodell-Dump), Prompts ("Pre-Print-Check", "Erste-Schicht-Profil", "Bett-Leveling-Assistent"), Resources (`config.g`, Maschinenprofil).

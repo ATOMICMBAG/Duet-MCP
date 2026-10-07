@@ -1,5 +1,6 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
+import { crc32 } from "../../src/crc32.js";
 
 /** Minimal simulated Duet (RepRapFirmware standalone HTTP API) for tests without hardware. */
 export interface MockState {
@@ -18,6 +19,13 @@ export interface MockState {
   pageSize: number; // entries per rr_filelist answer; `next` points to the rest, like the real firmware
   uploads: Record<string, number>; // remote name -> uploaded bytes (rr_upload)
   uploadErr: number; // rr_upload answers this err code (0 = ok)
+  corruptUploads: number; // the next N uploads fail the CRC32 check (simulates a bad WiFi transfer)
+  uploadAttempts: number; // rr_upload requests received
+  useSessionKeys: boolean; // newer firmware: rr_connect?sessionKey=yes returns a key that every later request must send as X-Session-Key
+  apiLevel: number; // rr_connect apiLevel (0 = RepRapFirmware 2.x without object model)
+  keys: Set<string>; // currently valid session keys
+  boards: Record<string, unknown>[]; // object model "boards"
+  sensors: Record<string, unknown>; // object model "sensors"
 }
 
 export async function startMockDuet(initial?: Partial<MockState>) {
@@ -37,6 +45,13 @@ export async function startMockDuet(initial?: Partial<MockState>) {
     pageSize: 1000,
     uploads: {},
     uploadErr: 0,
+    corruptUploads: 0,
+    uploadAttempts: 0,
+    useSessionKeys: false,
+    apiLevel: 1,
+    keys: new Set<string>(),
+    boards: [{ name: "Duet 2 WiFi", shortName: "2WiFi", firmwareName: "RepRapFirmware for Duet 2 WiFi/Ethernet", firmwareVersion: "3.2.2" }],
+    sensors: { endstops: [{ triggered: false, type: "inputPin" }], probes: [], filamentMonitors: [], analogSensors: [] },
     ...initial,
   };
   const models: Record<string, () => unknown> = {
@@ -47,6 +62,9 @@ export async function startMockDuet(initial?: Partial<MockState>) {
     tools: () => [{ heaters: [1] }],
     job: () => state.job,
     "move.speedFactor": () => state.speedFactor,
+    boards: () => state.boards,
+    sensors: () => state.sensors,
+    "sensors.endstops": () => (state.sensors as any).endstops,
     "move.axes": () => ["X", "Y", "Z"].map((letter) => ({ letter, homed: true, min: 0, max: 220, machinePosition: 0 })),
   };
   const server = http.createServer((req, res) => {
@@ -55,11 +73,19 @@ export async function startMockDuet(initial?: Partial<MockState>) {
     if (u.pathname === "/rr_connect") {
       if (state.noSessions) return send({ err: 2 });
       if ((u.searchParams.get("password") ?? "") !== state.password) return send({ err: 1 });
-      state.connected = true; state.connects++;
-      return send({ err: 0, sessionTimeout: 8000, boardType: "mock", apiLevel: 1 });
+      state.connects++;
+      if (state.useSessionKeys && u.searchParams.get("sessionKey") === "yes") {
+        const key = String(1000000 + state.connects);
+        state.keys.add(key);
+        return send({ err: 0, sessionTimeout: 8000, boardType: "mock", apiLevel: state.apiLevel, sessionKey: Number(key) });
+      }
+      state.connected = true;
+      return send({ err: 0, sessionTimeout: 8000, boardType: "mock", apiLevel: state.apiLevel });
     }
-    if (!state.connected) { res.statusCode = 401; return res.end(); }
-    if (u.pathname === "/rr_disconnect") { state.connected = false; return send({ err: 0 }); }
+    // Authentication: with session keys every request must carry a valid X-Session-Key, otherwise the legacy "one session" flag applies.
+    const keyOk = state.useSessionKeys ? state.keys.has(String(req.headers["x-session-key"] ?? "")) : state.connected;
+    if (!keyOk) { res.statusCode = 401; return res.end(); }
+    if (u.pathname === "/rr_disconnect") { state.keys.delete(String(req.headers["x-session-key"] ?? "")); state.connected = false; return send({ err: 0 }); }
     if (u.pathname === "/rr_model") {
       const key = u.searchParams.get("key") ?? "";
       const f = models[key];
@@ -87,8 +113,14 @@ export async function startMockDuet(initial?: Partial<MockState>) {
       req.on("data", (c) => chunks.push(c));
       req.on("end", () => {
         const name = u.searchParams.get("name") ?? "";
-        if (state.uploadErr === 0) state.uploads[name] = Buffer.concat(chunks).length;
-        send({ err: state.uploadErr });
+        const body = Buffer.concat(chunks);
+        const wanted = u.searchParams.get("crc32");
+        const crcOk = wanted === null || (state.corruptUploads <= 0 && Number.parseInt(wanted, 16) === crc32(body));
+        if (state.corruptUploads > 0) state.corruptUploads--;
+        const err = state.uploadErr !== 0 ? state.uploadErr : crcOk ? 0 : 1;
+        if (err === 0) state.uploads[name] = body.length;
+        state.uploadAttempts++;
+        send({ err });
       });
       return;
     }
@@ -111,7 +143,7 @@ export async function startMockDuet(initial?: Partial<MockState>) {
   return {
     state,
     host: `127.0.0.1:${port}`,
-    expireSession: () => { state.connected = false; },
+    expireSession: () => { state.connected = false; state.keys.clear(); },
     close: () => new Promise<void>((r) => { server.close(() => r()); server.closeAllConnections(); }),
   };
 }
