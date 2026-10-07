@@ -3,7 +3,9 @@
 MCP-Server (Model Context Protocol), mit dem Claude Code eine **Duet-Maschine (RepRapFirmware)** über LAN/WLAN bedienen kann:
 Status lesen, Dateien verwalten, Kamerabilder ansehen, Achsen referenzieren, Drucke starten und überwachen. Der Server wirkt als Sicherheitsschicht zwischen Claude und der Maschine.
 
-> **Repository:** https://github.com/ATOMICMBAG/Duet3D_MCP (privat; Umbenennung auf `duet-mcp` später möglich).
+> **Sicherheit zuerst:** Heizungen und Motoren sind gefährlich. Alpha-Software ohne Gewährleistung, nie unbeaufsichtigt betreiben, Notaus in Reichweite halten. Bitte lies [SAFETY.md](SAFETY.md) vor der ersten Benutzung. / *Heaters and motors are dangerous. Alpha software, no warranty, never run unattended. Read [SAFETY.md](SAFETY.md) first.*
+>
+> **Repository:** https://github.com/ATOMICMBAG/Duet3D-MCP (privat).
 >
 > **Lizenz:** noch nicht festgelegt (`UNLICENSED` in `package.json`, siehe Schritt B7). Bis dahin ist das Repository privat.
 >
@@ -126,12 +128,13 @@ Legende: `[x]` erledigt, `[ ]` offen, `[?]` offene Entscheidung.
   *Abnahme:* `npm test` testet Homing, Jobs, Fehlerfälle, Wiederverbinden, Supervisor, Bestätigung, Geschwindigkeitsprofil und Dateien gegen den Mock (134 Tests, lokal grün). *Noch offen dazu:* Die CI muss nach dem ersten Push auf GitHub tatsächlich grün sein, das ist bisher nur lokal unter Windows mit Node 25 geprüft.
 - [ ] **B3 Versionsmatrix.** Ziel: RRF 3.2 (getestet) bis aktuell, Duet 2 und Duet 3 (Standalone), später Duet 3 im SBC-Modus (DuetWebServer-REST). Unterschiede im Objektmodell dokumentieren; Testgeräte aus der Community suchen. Prüfen, ob `@duet3d/connectors` den eigenen Client ersetzen oder ergänzen soll.
   *Abnahme:* Tabelle "getestet mit" in der README, jede Zeile mit Gerät und Firmware.
-- [ ] **B4 Sicherheitstext ganz vorne.** Haftungsausschluss, Nur-Lesen als Standard, "nie unbeaufsichtigt", Hinweise auf Hardware-Schutz (Thermal Runaway, Sicherung, Rauchmelder), was der Server **nicht** leisten kann (z. B. Filament-Klemmen erkennen).
-  *Abnahme:* `SAFETY.md` und README-Abschnitt von einer zweiten Person gegengelesen.
+- [x] **B4 Sicherheitstext ganz vorne** (`SAFETY.md`, Hinweis ganz oben in der README, zweisprachig in den Kernaussagen). Enthält Haftungsausschluss, Nur-Lesen als Standard, "nie unbeaufsichtigt", was der Server schützt und was er **nicht** erkennen kann (klemmendes Filament, Feuer, Ausfall des Servers, defekte Hardware), Voraussetzungen an die Hardware (Firmware-Schutz testen, Sicherung, Rauchmelder, Notaus), Betriebsregeln und den Meldeweg für Sicherheitslücken.
+  *Noch offen dazu:* Gegenlesen durch eine zweite Person (am besten aus der Duet3D-Community), englische Gesamtfassung, Meldeweg konkret eintragen, sobald das Repository öffentlich ist.
 - [ ] **B5 Gute Tool-Beschreibungen, Prompts, Resources.** Wenige klare Werkzeuge, kurze Antworten (kein Objektmodell-Dump), Prompts ("Pre-Print-Check", "Erste-Schicht-Profil", "Bett-Leveling-Assistent"), Resources (`config.g`, Maschinenprofil).
   *Abnahme:* Ein frisches Claude findet mit nur den Beschreibungen den richtigen Ablauf.
-- [ ] **B6 Repo-Hygiene.** Keine IPs, Passwörter, Audit-Logs, G-Code oder Kamerabilder einchecken (`.gitignore` ist vorbereitet); Beispiel-Dateien anonymisieren; Historie vor dem Veröffentlichen prüfen.
-  *Abnahme:* Suche nach IP, Passwort, Namen im ganzen Repo liefert nichts Persönliches.
+- [x] **B6 Repo-Hygiene** (Teil 1, vor dem Veröffentlichen zu wiederholen). Am 07.10. geprüft: Suche in allen versionierten Dateien nach der eigenen IP, dem DWC-Passwort, Benutzerpfaden, E-Mail-Adressen, Schlüsseln und Zugangsdaten-Mustern ist leer (einzige Fundstelle: die allgemeine Beispiel-IP `192.168.1.50` in einer Fehlermeldung). `.gitignore` schließt `.env`, G-Code, STL, Logs, Kamerabilder und Build-Ordner aus; `.env.example` hat nur Platzhalter; `.gitattributes` vereinheitlicht die Zeilenenden.
+  **Zu entscheiden, bevor das Repository öffentlich wird:** In der Commit-Historie steht die Autoren-Adresse aus der Git-Einstellung (`user.email`). Sie wird mit dem Repository öffentlich sichtbar. Wer das nicht will, stellt in Git und GitHub auf die No-Reply-Adresse um (GitHub → Settings → Emails → "Keep my email addresses private") und schreibt die zwei bisherigen Commits einmal um, solange das Repository privat ist.
+  *Noch offen dazu:* Wiederholung der Suche kurz vor dem Veröffentlichen, Beispiel-G-Code anonymisieren (es gibt noch keine), Prüfung der Pakete auf Lizenzen (zusammen mit B7).
 - [ ] **B7 Lizenz und Absprache mit der Community.** `[?]` Lizenz: Die Praxis der Duet3D-Repos prüfen (insbesondere die Repos von [chrishamm](https://github.com/chrishamm), `@duet3d/connectors` steht unter LGPL-2.1) und dort üblichem Vorgehen folgen: Lizenzkompatibilität, Quellenangabe, Hinweise in `LICENSE`/`NOTICE`. Die Lizenz in `package.json` (derzeit vorläufig `MIT`) danach festlegen. Im Duet3D-Forum erst fragen, ob Interesse besteht und wie das Projekt heißen/wo es liegen soll.
   *Abnahme:* Lizenz festgelegt und begründet; Forenbeitrag veröffentlicht; Rückmeldung eingearbeitet.
 - [ ] **B8 Verpacken.** npm-Paket (`npx duet-mcp`), `.mcpb` für Claude Desktop, Beispiel für `claude mcp add`, README auf Englisch und Deutsch, Changelog, Versionierung (SemVer).
