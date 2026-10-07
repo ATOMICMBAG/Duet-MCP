@@ -1,0 +1,39 @@
+name: Hardware test report
+description: Tell us how duet-mcp behaved on your board / firmware (works or not)
+labels: ["hardware-report"]
+body:
+  - type: input
+    id: board
+    attributes:
+      label: Board
+      description: "e.g. Duet 2 WiFi, Duet 2 Ethernet, Duet 3 Mini 5+, Duet 3 MB6HC (standalone mode)"
+    validations: { required: true }
+  - type: input
+    id: firmware
+    attributes:
+      label: RepRapFirmware version
+      description: "Output of get_machine_info or M115"
+    validations: { required: true }
+  - type: input
+    id: kinematics
+    attributes:
+      label: Kinematics and machine type
+      description: "Cartesian, CoreXY, Delta, Polar, CNC, laser ..."
+  - type: dropdown
+    id: mode
+    attributes:
+      label: What did you test?
+      multiple: true
+      options:
+        - Read-only tools (status, files, sensors)
+        - Homing
+        - Upload and start a job
+        - Supervisor events (pause, timeouts)
+        - Camera snapshot
+        - Other
+  - type: textarea
+    id: result
+    attributes:
+      label: What worked, what did not
+      description: "Include error texts from the tools. Remove passwords, IP addresses and personal data."
+    validations: { required: true }

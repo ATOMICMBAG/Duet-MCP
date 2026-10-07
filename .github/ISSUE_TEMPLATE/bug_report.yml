@@ -1,0 +1,25 @@
+name: Bug report
+description: Something does not work as described
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Security problems (a way around the guard or the confirmation, leaked password): do NOT use this form, see SECURITY.md."
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+  - type: input
+    id: env
+    attributes:
+      label: Board, firmware, Node version, OS
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output or audit log lines
+      description: "Remove passwords, IP addresses and personal data first."
