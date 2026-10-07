@@ -2,7 +2,7 @@
 
 An MCP server (Model Context Protocol) that lets an AI assistant such as Claude operate a **Duet machine (RepRapFirmware)** over your LAN/WLAN: read status, manage files, look at camera pictures, home axes, start and supervise prints. The server is a safety layer between the AI and the machine.
 
-*Deutsch: [README.de.md](README.de.md) (mit dem ausführlichen Plan und allen Ergebnissen).*
+_Deutsch: [README.de.md](README.de.md) (mit dem ausführlichen Plan und allen Ergebnissen)._
 
 > **Safety first.** Heaters and motors are dangerous. This is alpha software without any warranty. Never run it unattended and keep the emergency stop within reach. Read [SAFETY.md](SAFETY.md) before the first use, and see [SAFETY_RULES.md](SAFETY_RULES.md) for the rules the server enforces.
 >
@@ -15,6 +15,8 @@ Phone / PC ──► Claude ──► duet-mcp (local, stdio) ──► Duet (HT
                               └──► camera (HTTP / RTSP / local webcam)
 ```
 
+![pic](Duet_MCP_Claude.jpg)
+
 ## What it does
 
 - **Read-only by default.** Control tools exist only with `DUET_READ_ONLY=false`.
@@ -25,6 +27,8 @@ Phone / PC ──► Claude ──► duet-mcp (local, stdio) ──► Duet (HT
 - **Speed profile per layer** (for example 30 % on layer 1, 50 % on layer 2).
 - **Camera snapshots** from an HTTP camera, RTSP or a local webcam (via ffmpeg).
 - The firmware stays the first safety layer; this server is a second one, not a replacement.
+
+![pic](Duet_MCP_Claude_chat.jpg)
 
 ## Quick start
 
@@ -55,17 +59,17 @@ Then ask: "Show me the machine info and job status." The server sends the safe w
 
 ## Settings (environment or `.env`)
 
-| Variable | Meaning | Default |
-|---|---|---|
-| `DUET_HOST` | IP or host name of the Duet | required |
-| `DUET_PASSWORD` | DWC password | `reprap` |
-| `DUET_READ_ONLY` | `false` enables the control tools | `true` |
-| `DUET_CAMERA_URL`, `DUET_CAMERAS` | Cameras as `name=url,...`; `http(s)://` (photo or MJPEG), `rtsp://`, `dshow:<device>` | none |
-| `DUET_MACROS` | Macros allowed for `M98`, comma separated | none |
-| `DUET_MAX_BED_TEMP`, `DUET_MAX_TOOL_TEMP` | Upper limits in `send_gcode` | 100 / 260 |
-| `DUET_HEAT_IDLE_MINUTES` | Idle-heater watchdog, 0 = off | 15 |
-| `DUET_AUDIT_LOG` | Path of the audit log | `duet-mcp-audit.log` |
-| `FFMPEG_PATH` | Path to `ffmpeg` (RTSP and local webcam) | `ffmpeg` in PATH |
+| Variable                                  | Meaning                                                                               | Default              |
+| ----------------------------------------- | ------------------------------------------------------------------------------------- | -------------------- |
+| `DUET_HOST`                               | IP or host name of the Duet                                                           | required             |
+| `DUET_PASSWORD`                           | DWC password                                                                          | `reprap`             |
+| `DUET_READ_ONLY`                          | `false` enables the control tools                                                     | `true`               |
+| `DUET_CAMERA_URL`, `DUET_CAMERAS`         | Cameras as `name=url,...`; `http(s)://` (photo or MJPEG), `rtsp://`, `dshow:<device>` | none                 |
+| `DUET_MACROS`                             | Macros allowed for `M98`, comma separated                                             | none                 |
+| `DUET_MAX_BED_TEMP`, `DUET_MAX_TOOL_TEMP` | Upper limits in `send_gcode`                                                          | 100 / 260            |
+| `DUET_HEAT_IDLE_MINUTES`                  | Idle-heater watchdog, 0 = off                                                         | 15                   |
+| `DUET_AUDIT_LOG`                          | Path of the audit log                                                                 | `duet-mcp-audit.log` |
+| `FFMPEG_PATH`                             | Path to `ffmpeg` (RTSP and local webcam)                                              | `ffmpeg` in PATH     |
 
 More settings (supervisor thresholds, confirmation mode, speed profile) are listed with comments in [.env.example](.env.example).
 
@@ -78,13 +82,13 @@ Plus **5 prompts** (workflow templates) and **4 resources** (profile, `config.g`
 
 ## Compatibility
 
-| Board | Firmware | Mode | Status |
-|---|---|---|---|
-| Duet 2 WiFi | 3.2.x | standalone | **tested** |
-| Duet 2 WiFi / Ethernet / Maestro | 3.0–3.6 | standalone | expected to work, untested |
-| Duet 3 Mini 5+, MB6HC, MB6XD (WiFi/Ethernet) | 3.3–3.6 | standalone | expected to work, untested |
-| Duet 3 with single-board computer (Raspberry Pi) | any | SBC (DuetWebServer) | **not supported** (different API, planned) |
-| any board | 2.x | – | **not supported** (no object model), clear error message |
+| Board                                            | Firmware | Mode                | Status                                                   |
+| ------------------------------------------------ | -------- | ------------------- | -------------------------------------------------------- |
+| Duet 2 WiFi                                      | 3.2.x    | standalone          | **tested**                                               |
+| Duet 2 WiFi / Ethernet / Maestro                 | 3.0–3.6  | standalone          | expected to work, untested                               |
+| Duet 3 Mini 5+, MB6HC, MB6XD (WiFi/Ethernet)     | 3.3–3.6  | standalone          | expected to work, untested                               |
+| Duet 3 with single-board computer (Raspberry Pi) | any      | SBC (DuetWebServer) | **not supported** (different API, planned)               |
+| any board                                        | 2.x      | –                   | **not supported** (no object model), clear error message |
 
 `get_machine_info` shows which board and firmware the server talks to and how far that combination is verified. Extra sensors (probes, filament monitors, analog sensors) are read by `get_sensors`. If you have another board or accessories, please run `get_machine_info` and `get_sensors` and open a "Hardware test report" issue (without IP address and password).
 
