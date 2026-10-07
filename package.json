@@ -2,17 +2,45 @@
   "name": "duet-mcp",
   "version": "0.1.0",
   "description": "MCP server for Duet (RepRapFirmware) machines: status, files, camera, guarded G-code",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "duet",
+    "duet3d",
+    "reprapfirmware",
+    "3d-printing",
+    "claude"
+  ],
+  "homepage": "https://github.com/ATOMICMBAG/Duet3D-MCP#readme",
+  "bugs": {
+    "url": "https://github.com/ATOMICMBAG/Duet3D-MCP/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ATOMICMBAG/Duet3D-MCP.git"
+  },
+  "license": "MIT",
   "type": "module",
   "bin": {
     "duet-mcp": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "README.de.md",
+    "SAFETY.md",
+    "SAFETY_RULES.md",
+    "CHANGELOG.md",
+    ".env.example"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm test"
   },
-  "license": "MIT",
   "engines": {
     "node": ">=20"
   },

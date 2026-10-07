@@ -1,0 +1,52 @@
+{
+  "manifest_version": "0.3",
+  "name": "duet-mcp",
+  "display_name": "Duet (RepRapFirmware) MCP",
+  "version": "0.1.0",
+  "description": "Let Claude read status, files and camera pictures from a Duet machine and, if enabled, home, start and supervise prints with safety guards.",
+  "long_description": "Unofficial community project, alpha. Read-only by default. Heaters and motors are dangerous: never run unattended and keep the emergency stop within reach. Read SAFETY.md first.",
+  "author": { "name": "ATOMICMBAG", "url": "https://github.com/ATOMICMBAG" },
+  "repository": { "type": "git", "url": "https://github.com/ATOMICMBAG/Duet3D-MCP.git" },
+  "homepage": "https://github.com/ATOMICMBAG/Duet3D-MCP",
+  "documentation": "https://github.com/ATOMICMBAG/Duet3D-MCP#readme",
+  "support": "https://github.com/ATOMICMBAG/Duet3D-MCP/issues",
+  "license": "MIT",
+  "keywords": ["duet", "reprapfirmware", "3d-printing", "mcp"],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "DUET_HOST": "${user_config.duet_host}",
+        "DUET_PASSWORD": "${user_config.duet_password}",
+        "DUET_READ_ONLY": "${user_config.read_only}"
+      }
+    }
+  },
+  "user_config": {
+    "duet_host": {
+      "type": "string",
+      "title": "Duet IP address or host name",
+      "description": "For example 192.168.1.50",
+      "required": true
+    },
+    "duet_password": {
+      "type": "string",
+      "title": "Duet (DWC) password",
+      "description": "Stored by Claude Desktop, not in this bundle. Default of a Duet without password is reprap.",
+      "sensitive": true,
+      "required": false,
+      "default": "reprap"
+    },
+    "read_only": {
+      "type": "string",
+      "title": "Read-only (true or false)",
+      "description": "Keep true until you have read SAFETY.md. false enables homing, printing and G-code (you are asked to approve risky steps).",
+      "default": "true",
+      "required": true
+    }
+  },
+  "compatibility": { "runtimes": { "node": ">=20.0.0" } }
+}
