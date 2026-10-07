@@ -7,9 +7,9 @@ Status lesen, Dateien verwalten, Kamerabilder ansehen, Achsen referenzieren, Dru
 
 > **Sicherheit zuerst:** Heizungen und Motoren sind gefährlich. Alpha-Software ohne Gewährleistung, nie unbeaufsichtigt betreiben, Notaus in Reichweite halten. Bitte lies [SAFETY.md](SAFETY.md) vor der ersten Benutzung. / *Heaters and motors are dangerous. Alpha software, no warranty, never run unattended. Read [SAFETY.md](SAFETY.md) first.*
 >
-> **Repository:** https://github.com/ATOMICMBAG/Duet3D-MCP (privat).
+> **Repository:** https://github.com/ATOMICMBAG/Duet3D-MCP
 >
-> **Lizenz:** MIT (siehe `LICENSE`). Das Repository ist noch privat; vor dem Veröffentlichen siehe B6/B7.
+> **Lizenz:** MIT (siehe `LICENSE`).
 >
 > **Inoffizielles Community-Projekt.** Nicht von Duet3D. Der Name `duet-mcp` bewusst ohne Firmenmarke.
 >
@@ -160,7 +160,7 @@ Legende: `[x]` erledigt, `[ ]` offen, `[?]` offene Entscheidung.
   *Noch offen dazu:* Der eigentliche Praxistest, ob ein **frisches Claude** nur anhand von Anleitung und Beschreibungen den richtigen Ablauf findet (braucht einen echten Durchlauf in Claude Code ohne Vorwissen); Prompts in Claude Code aufrufen; englische Texte der Prompts sind für das Modell, die Titel für die Nutzer.
 - [x] **B6 Repo-Hygiene** (Teil 1, vor dem Veröffentlichen zu wiederholen). Am 07.10. geprüft: Suche in allen versionierten Dateien nach der eigenen IP, dem DWC-Passwort, Benutzerpfaden, E-Mail-Adressen, Schlüsseln und Zugangsdaten-Mustern ist leer (einzige Fundstelle: die allgemeine Beispiel-IP `192.168.1.50` in einer Fehlermeldung). `.gitignore` schließt `.env`, G-Code, STL, Logs, Kamerabilder und Build-Ordner aus; `.env.example` hat nur Platzhalter; `.gitattributes` vereinheitlicht die Zeilenenden.
   **Zu entscheiden, bevor das Repository öffentlich wird:** In der Commit-Historie steht die Autoren-Adresse aus der Git-Einstellung (`user.email`). Sie wird mit dem Repository öffentlich sichtbar. Wer das nicht will, stellt in Git und GitHub auf die No-Reply-Adresse um (GitHub → Settings → Emails → "Keep my email addresses private") und schreibt die zwei bisherigen Commits einmal um, solange das Repository privat ist.
-  *Noch offen dazu:* Wiederholung der Suche kurz vor dem Veröffentlichen, Beispiel-G-Code anonymisieren (es gibt noch keine), Prüfung der Pakete auf Lizenzen (zusammen mit B7).
+  *Noch offen dazu:* Suche vor dem Veröffentlichen am 07.10.2026 wiederholt (Dateien und gesamte Historie: keine IP, kein Passwort, keine private Adresse, keine .gcode/.stl/.log/.env; nur der Git-Autorenname steht in den Commits), Beispiel-G-Code anonymisieren (es gibt noch keine), Prüfung der Pakete auf Lizenzen (zusammen mit B7).
 - [ ] **B7 Lizenz und Absprache mit der Community.** `[?]` Vorbereitet (Teil 1, erledigt): `CONTRIBUTING.md` (jeder konstruktive Beitrag ist willkommen, Sicherheitsregeln für Beiträge), `CODE_OF_CONDUCT.md`, `SECURITY.md`, Issue-Vorlagen (Hardware-Testbericht, Fehler, Idee), PR-Vorlage, Entwurf des Forenbeitrags in `docs/forum-post-draft.md`; die ungenutzte Abhängigkeit `@duet3d/connectors` (LGPL-2.1) ist entfernt. Befund: Firmware und DWC stehen unter **GPL-3.0**; unser Server nutzt nur die dokumentierte HTTP-API und bindet keinen Duet3D-Code ein, jede Lizenz ist also möglich. Lizenz: **MIT** (entschieden, `LICENSE` + `package.json`). Offen (entscheidet der Besitzer): Repo öffentlich machen, Forenbeitrag veröffentlichen, Rückmeldung einarbeiten.
   *Abnahme:* Lizenz festgelegt und begründet (erledigt: MIT); Forenbeitrag veröffentlicht; Rückmeldung eingearbeitet.
 - [x] **B8 Verpacken.** Erledigt: `package.json` (Dateiliste, Repo-Angaben, `prepublishOnly`), englische `README.md` (diese Datei bleibt die ausführliche deutsche Fassung mit dem Plan), `CHANGELOG.md`, SemVer (Versionstest `test/package.test.ts`), `manifest.json` für `.mcpb` (validiert, gebaut 3,7 MB, Start getestet), `docs/PACKAGING.md`. Bewusst nicht gemacht: `npm publish` und das Hochladen des `.mcpb` (entscheidet der Besitzer, nach dem Öffentlichmachen).

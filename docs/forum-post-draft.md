@@ -21,7 +21,7 @@ What I would like:
 2. Review of the safety rules (SAFETY_RULES.md). Which cases did I miss?
 3. Opinions on the name and whether it should live under a community namespace.
 
-Repo: <link, once public>
+Repo: https://github.com/ATOMICMBAG/Duet3D-MCP
 Please note the disclaimer in SAFETY.md: use at your own risk, supervise the machine, keep the emergency stop within reach.
 
 Thanks for RepRapFirmware and DWC, which this builds on (the server only uses the documented HTTP API).
