@@ -7,7 +7,7 @@ Status lesen, Dateien verwalten, Kamerabilder ansehen, Achsen referenzieren, Dru
 >
 > **Repository:** https://github.com/ATOMICMBAG/Duet3D-MCP (privat).
 >
-> **Lizenz:** noch nicht festgelegt (`UNLICENSED` in `package.json`, siehe Schritt B7). Bis dahin ist das Repository privat.
+> **Lizenz:** MIT (siehe `LICENSE`). Das Repository ist noch privat; vor dem Veröffentlichen siehe B6/B7.
 >
 > **Inoffizielles Community-Projekt.** Nicht von Duet3D. Der Name `duet-mcp` bewusst ohne Firmenmarke.
 >
@@ -159,8 +159,8 @@ Legende: `[x]` erledigt, `[ ]` offen, `[?]` offene Entscheidung.
 - [x] **B6 Repo-Hygiene** (Teil 1, vor dem Veröffentlichen zu wiederholen). Am 07.10. geprüft: Suche in allen versionierten Dateien nach der eigenen IP, dem DWC-Passwort, Benutzerpfaden, E-Mail-Adressen, Schlüsseln und Zugangsdaten-Mustern ist leer (einzige Fundstelle: die allgemeine Beispiel-IP `192.168.1.50` in einer Fehlermeldung). `.gitignore` schließt `.env`, G-Code, STL, Logs, Kamerabilder und Build-Ordner aus; `.env.example` hat nur Platzhalter; `.gitattributes` vereinheitlicht die Zeilenenden.
   **Zu entscheiden, bevor das Repository öffentlich wird:** In der Commit-Historie steht die Autoren-Adresse aus der Git-Einstellung (`user.email`). Sie wird mit dem Repository öffentlich sichtbar. Wer das nicht will, stellt in Git und GitHub auf die No-Reply-Adresse um (GitHub → Settings → Emails → "Keep my email addresses private") und schreibt die zwei bisherigen Commits einmal um, solange das Repository privat ist.
   *Noch offen dazu:* Wiederholung der Suche kurz vor dem Veröffentlichen, Beispiel-G-Code anonymisieren (es gibt noch keine), Prüfung der Pakete auf Lizenzen (zusammen mit B7).
-- [ ] **B7 Lizenz und Absprache mit der Community.** `[?]` Vorbereitet (Teil 1, erledigt): `CONTRIBUTING.md` (jeder konstruktive Beitrag ist willkommen, Sicherheitsregeln für Beiträge), `CODE_OF_CONDUCT.md`, `SECURITY.md`, Issue-Vorlagen (Hardware-Testbericht, Fehler, Idee), PR-Vorlage, Entwurf des Forenbeitrags in `docs/forum-post-draft.md`; die ungenutzte Abhängigkeit `@duet3d/connectors` (LGPL-2.1) ist entfernt. Befund: Firmware und DWC stehen unter **GPL-3.0**; unser Server nutzt nur die dokumentierte HTTP-API und bindet keinen Duet3D-Code ein, jede Lizenz ist also möglich. Offen (entscheidet der Besitzer): Lizenz festlegen (`LICENSE` + `package.json`), Repo öffentlich machen, Forenbeitrag veröffentlichen, Rückmeldung einarbeiten.
-  *Abnahme:* Lizenz festgelegt und begründet; Forenbeitrag veröffentlicht; Rückmeldung eingearbeitet.
+- [ ] **B7 Lizenz und Absprache mit der Community.** `[?]` Vorbereitet (Teil 1, erledigt): `CONTRIBUTING.md` (jeder konstruktive Beitrag ist willkommen, Sicherheitsregeln für Beiträge), `CODE_OF_CONDUCT.md`, `SECURITY.md`, Issue-Vorlagen (Hardware-Testbericht, Fehler, Idee), PR-Vorlage, Entwurf des Forenbeitrags in `docs/forum-post-draft.md`; die ungenutzte Abhängigkeit `@duet3d/connectors` (LGPL-2.1) ist entfernt. Befund: Firmware und DWC stehen unter **GPL-3.0**; unser Server nutzt nur die dokumentierte HTTP-API und bindet keinen Duet3D-Code ein, jede Lizenz ist also möglich. Lizenz: **MIT** (entschieden, `LICENSE` + `package.json`). Offen (entscheidet der Besitzer): Repo öffentlich machen, Forenbeitrag veröffentlichen, Rückmeldung einarbeiten.
+  *Abnahme:* Lizenz festgelegt und begründet (erledigt: MIT); Forenbeitrag veröffentlicht; Rückmeldung eingearbeitet.
 - [ ] **B8 Verpacken.** npm-Paket (`npx duet-mcp`), `.mcpb` für Claude Desktop, Beispiel für `claude mcp add`, README auf Englisch und Deutsch, Changelog, Versionierung (SemVer).
   *Abnahme:* Frische Installation auf einem zweiten Rechner in unter 10 Minuten.
 
@@ -186,6 +186,6 @@ Der Server lief als eigener Prozess (`DUET_READ_ONLY=false`) und wurde nur über
 - [ ] Separater Adapter für Bambu Lab im LAN-Modus (nur lesen), eigenes Projekt
 
 ## Offene Entscheidungen
-- `[?]` Lizenz (siehe B7)
+- Lizenz: MIT (entschieden)
 - `[?]` Reihenfolge der Schritte
 - `[?]` Soll der Server später Aufträge in einer Warteschlange halten (Serienproduktion)?

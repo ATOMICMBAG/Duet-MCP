@@ -42,4 +42,4 @@ Please do not open a public issue for security problems. See `SECURITY.md`.
 
 ## License of contributions
 
-By submitting a contribution you agree that it is released under the project license (see `LICENSE` once it is set; until then the repository is not yet public).
+By submitting a contribution you agree that it is released under the project license (MIT, see `LICENSE`).
