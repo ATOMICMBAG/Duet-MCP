@@ -1,0 +1,30 @@
+{
+  "name": "duet-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Duet (RepRapFirmware) machines: status, files, camera, guarded G-code",
+  "type": "module",
+  "bin": {
+    "duet-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@duet3d/connectors": "^3.7.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}
