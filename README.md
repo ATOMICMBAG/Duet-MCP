@@ -57,6 +57,7 @@ claude mcp add duet -- node "<Pfad>/dist/index.js"
 
 ## Werkzeuge (Stand heute)
 
+Dazu **5 Prompts** (Ablaufvorlagen) und **4 Resources** (Profil, `config.g`, Einstellungen, Ereignisse), siehe B5.
 Lesen: `get_status`, `get_machine_profile`, `get_machine_info`, `get_sensors`, `list_files`, `read_file` (Passwörter geschwärzt), `get_endstops`, `get_camera_snapshot`, `list_local_cameras`, `preflight_gcode`, `job_status`, `emergency_stop`.
 Steuern (nur mit `DUET_READ_ONLY=false`): `send_gcode` (mit Guard), `home_axes`, `start_job`, `pause_job`, `resume_job`, `cancel_job`, `upload_file`, `set_speed_profile`.
 
@@ -98,7 +99,7 @@ Legende: `[x]` erledigt, `[ ]` offen, `[?]` offene Entscheidung.
 - [x] Referenzieren: Z, X, Y; Freifahren vor dem Anfahren; Zeitüberschreitung löst `M112` aus
 - [x] Kameras: HTTP, MJPEG, RTSP, lokale Webcam (`dshow:`)
 - [x] Audit-Log, Heizungs-Wächter, `.env`, Passwort-Schwärzung, Fehlerantworten der Duet werden zu Fehlern
-- [x] Tests (150), darunter End-to-End gegen eine simulierte Duet, plus ein echter Testlauf auf der Duet (siehe unten)
+- [x] Tests (158), darunter End-to-End gegen eine simulierte Duet, plus ein echter Testlauf auf der Duet (siehe unten)
 
 ## A. Aus den Wegwerf-Skripten ins Produkt
 - [x] **A0 Bekannte Fehler beheben.** `cancel_job` pausiert einen laufenden Job zuerst (`M25`), dann `M0` (die Firmware lehnt `M0` sonst ab); lässt die Heizziele unverändert. `resume_job` verweigert, wenn vor der ersten Schicht pausiert wurde oder eine Heizung nicht auf Temperatur ist (`resume.g` würde 10 mm in die Luft extrudieren), außer mit `force=true`. Code: `src/jobcontrol.ts`, Tests: `test/jobcontrol.test.ts`.
@@ -147,8 +148,14 @@ Legende: `[x]` erledigt, `[ ]` offen, `[?]` offene Entscheidung.
   *Noch offen dazu:* Tests auf Duet 2 Ethernet/Maestro, Duet 3 und neuerer Firmware (Community); SBC-Modus über die REST-Schnittstelle (`@duet3d/connectors` RestConnector); ob die Firmware 3.2 den CRC wirklich prüft, ist nicht bewiesen (er wird gesendet und akzeptiert). `@duet3d/connectors` ist als Abhängigkeit installiert, wird aber noch nicht benutzt; die Entscheidung dazu fällt mit B7 (Lizenz).
 - [x] **B4 Sicherheitstext ganz vorne** (`SAFETY.md`, Hinweis ganz oben in der README, zweisprachig in den Kernaussagen). Enthält Haftungsausschluss, Nur-Lesen als Standard, "nie unbeaufsichtigt", was der Server schützt und was er **nicht** erkennen kann (klemmendes Filament, Feuer, Ausfall des Servers, defekte Hardware), Voraussetzungen an die Hardware (Firmware-Schutz testen, Sicherung, Rauchmelder, Notaus), Betriebsregeln und den Meldeweg für Sicherheitslücken.
   *Noch offen dazu:* Gegenlesen durch eine zweite Person (am besten aus der Duet3D-Community), englische Gesamtfassung, Meldeweg konkret eintragen, sobald das Repository öffentlich ist.
-- [ ] **B5 Gute Tool-Beschreibungen, Prompts, Resources.** Wenige klare Werkzeuge, kurze Antworten (kein Objektmodell-Dump), Prompts ("Pre-Print-Check", "Erste-Schicht-Profil", "Bett-Leveling-Assistent"), Resources (`config.g`, Maschinenprofil).
-  *Abnahme:* Ein frisches Claude findet mit nur den Beschreibungen den richtigen Ablauf.
+- [x] **B5 Gute Tool-Beschreibungen, Prompts, Resources** (`src/prompts.ts`, `src/index.ts`).
+  - **Anleitung beim Verbinden** (MCP-`instructions`): der sichere Ablauf in zehn Zeilen (erst `get_machine_info` und `job_status`, vor dem Druck `preflight_gcode`, Zustimmung gibt der Mensch, Verhalten bei Ereignissen, Notaus, Nur-Lesen).
+  - **Kurze Antworten:** `get_status` und `get_endstops` liefern nur noch das Nötige (Heizungen mit Rolle, Achsen mit Position/Referenz/Grenzen, Job mit Fortschritt), an der Test-Duet 641 statt mehreren tausend Zeichen.
+  - **Beschreibungen** mit Voraussetzungen und Folgeschritten; ein Test erzwingt Mindest- und Höchstlänge für jedes Werkzeug.
+  - **Prompts** (Ablaufvorlagen, die der Nutzer wählt): `pre_print_check`, `start_print_supervised`, `first_layer_profile`, `bed_leveling_assistant`, `troubleshoot_connection`. Clients wie Claude Code bieten MCP-Prompts als Befehle an (auf diesem System nicht geprüft).
+  - **Resources:** `duet://machine/profile`, `duet://machine/config.g` (Passwörter geschwärzt), `duet://server/settings`, `duet://events/recent`.
+  *Abnahme (Teil 1 erfüllt):* 8 Tests: Die Texte nennen nur Werkzeuge, die es gibt; jedes Werkzeug hat eine brauchbare Beschreibung; Prompts, Argumente und Resources funktionieren über MCP; auf der echten Duet gegengeprüft.
+  *Noch offen dazu:* Der eigentliche Praxistest, ob ein **frisches Claude** nur anhand von Anleitung und Beschreibungen den richtigen Ablauf findet (braucht einen echten Durchlauf in Claude Code ohne Vorwissen); Prompts in Claude Code aufrufen; englische Texte der Prompts sind für das Modell, die Titel für die Nutzer.
 - [x] **B6 Repo-Hygiene** (Teil 1, vor dem Veröffentlichen zu wiederholen). Am 07.10. geprüft: Suche in allen versionierten Dateien nach der eigenen IP, dem DWC-Passwort, Benutzerpfaden, E-Mail-Adressen, Schlüsseln und Zugangsdaten-Mustern ist leer (einzige Fundstelle: die allgemeine Beispiel-IP `192.168.1.50` in einer Fehlermeldung). `.gitignore` schließt `.env`, G-Code, STL, Logs, Kamerabilder und Build-Ordner aus; `.env.example` hat nur Platzhalter; `.gitattributes` vereinheitlicht die Zeilenenden.
   **Zu entscheiden, bevor das Repository öffentlich wird:** In der Commit-Historie steht die Autoren-Adresse aus der Git-Einstellung (`user.email`). Sie wird mit dem Repository öffentlich sichtbar. Wer das nicht will, stellt in Git und GitHub auf die No-Reply-Adresse um (GitHub → Settings → Emails → "Keep my email addresses private") und schreibt die zwei bisherigen Commits einmal um, solange das Repository privat ist.
   *Noch offen dazu:* Wiederholung der Suche kurz vor dem Veröffentlichen, Beispiel-G-Code anonymisieren (es gibt noch keine), Prüfung der Pakete auf Lizenzen (zusammen mit B7).

@@ -9,6 +9,7 @@ import { grabFrame, listDshowDevices } from "./camera.js";
 import { mergeLive, parseConfig, redactSecrets, type MachineProfile } from "./profile.js";
 import { homeAxes, orderAxes } from "./homing.js";
 import { describeCompat, formatCompat } from "./compat.js";
+import { INSTRUCTIONS, PROMPTS } from "./prompts.js";
 import { makeConfirmer, parseConfirmMode, systemDialog, type ConfirmRequest } from "./confirm.js";
 import { SpeedGovernor, formatSpeedProfile, parseSpeedProfile, type SpeedStep } from "./speedprofile.js";
 import { cancelJob, resumeJob } from "./jobcontrol.js";
@@ -29,7 +30,7 @@ const homedMap = async (): Promise<Record<string, boolean>> =>
 loadDotEnv();
 const cfg = loadConfig();
 const duet = new DuetClient(cfg.host, cfg.password);
-const server = new McpServer({ name: "duet-mcp", version: "0.1.0" }, { capabilities: { logging: {} } });
+const server = new McpServer({ name: "duet-mcp", version: "0.1.0" }, { capabilities: { logging: {} }, instructions: INSTRUCTIONS });
 
 let profile: MachineProfile | undefined;
 async function getProfile(refresh = false): Promise<MachineProfile> {
@@ -85,13 +86,13 @@ const readTool = (name: string, config: any, handler: ToolHandler) => server.reg
 const localTool = (name: string, config: any, handler: ToolHandler) => server.registerTool(name, { ...config, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } }, handler as any);
 const safetyTool = (name: string, config: any, handler: ToolHandler) => server.registerTool(name, { ...config, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false } }, handler as any);
 
-readTool("get_status", { description: "Machine state: status, temperatures, axis positions, current job progress.", inputSchema: {} }, async () => {
-  const [state, heat, move, job] = await Promise.all([duet.model("state"), duet.model("heat"), duet.model("move.axes"), duet.model("job")]);
+readTool("get_status", { description: "Compact machine state: status, heaters (current/target), axes (position, homed, limits) and the current job (file, layer, progress). For events, supervisor and speed use job_status.", inputSchema: {} }, async () => {
+  const [s, axes] = await Promise.all([collect(), duet.model("move.axes")]);
   return json({
-    status: state.status,
-    heat: { heaters: heat.heaters, bedHeaters: heat.bedHeaters },
-    axes: move,
-    job: { file: job.file?.fileName, layer: job.layer, duration: job.duration, filePosition: job.filePosition, size: job.file?.size },
+    status: s.status,
+    heaters: s.heaters.map((h, i) => ({ heater: i, role: h.role, current: h.current, target: h.target, state: h.state })),
+    axes: (axes as any[]).map((a) => ({ letter: a.letter, position: a.machinePosition, homed: !!a.homed, min: a.min, max: a.max })),
+    job: s.fileName ? { file: s.fileName, layer: s.layer, progressPercent: s.fileSize ? Math.round((s.filePosition / s.fileSize) * 1000) / 10 : 0 } : null,
   });
 });
 
@@ -116,7 +117,10 @@ readTool("read_file", { description: "Read a text file from the SD card (e.g. 0:
   return text(t.length > 200_000 ? t.slice(0, 200_000) + "\n[truncated]" : t);
 });
 
-readTool("get_endstops", { description: "Current endstop states (triggered or not) without moving anything. Use it to check wiring by pressing each endstop by hand before homing.", inputSchema: {} }, async () => json(await duet.model("sensors.endstops")));
+readTool("get_endstops", { description: "Current endstop states (triggered or not) per axis, without moving anything. Use it to check wiring by pressing each endstop by hand before homing.", inputSchema: {} }, async () => {
+  const [es, axes] = await Promise.all([duet.model("sensors.endstops"), duet.model("move.axes")]);
+  return json((es as any[]).map((e, i) => (e ? { axis: axes[i]?.letter ?? `#${i}`, triggered: !!e.triggered, type: e.type } : null)).filter(Boolean));
+});
 
 readTool("get_camera_snapshot", { description: `Fetch a still image from a configured camera to inspect the print or workspace. Cameras: ${Object.keys(cfg.cameras).join(", ") || "none configured (set DUET_CAMERAS or DUET_CAMERA_URL)"}.`, inputSchema: { camera: z.string().optional() } }, async ({ camera }) => {
   const names = Object.keys(cfg.cameras);
@@ -174,7 +178,7 @@ localTool("preflight_gcode",
 );
 
 // Emergency stop is a safe action and stays available even in read-only mode.
-safetyTool("emergency_stop", { description: "M112 emergency stop. Machine must be restarted afterwards.", inputSchema: {} }, async () => text((await duet.gcode("M112")) || "M112 sent"));
+safetyTool("emergency_stop", { description: "Emergency stop (M112): stops everything at once and switches the heaters off. The board must be restarted afterwards (power cycle, or M999 with approval). Always available, never asks for approval.", inputSchema: {} }, async () => text((await duet.gcode("M112")) || "M112 sent"));
 
 const simple = (code: string) => async () => text((await duet.gcode(code)) || "ok");
 
@@ -197,7 +201,7 @@ control(
     return text((await duet.gcode(gcode)) || "ok");
   },
 );
-control("pause_job", "Pause the running job (M25).", {}, simple("M25"), { destructiveHint: false });
+control("pause_job", "Pause the running job (M25). The firmware runs pause.g (retract, lift, park) and keeps the heaters on. Continue with resume_job or end with cancel_job. Needs no approval.", {}, simple("M25"), { destructiveHint: false });
 control("resume_job", `Resume a paused job (M24). Refuses if the job was paused before the first layer or a heater is not at temperature (resume.g would extrude 10 mm into the air / cold); cancel and restart instead. With force=true the user is asked to approve resuming anyway. ${CONFIRM_NOTE}`, { force: z.boolean().default(false) }, async ({ force }) => {
   try {
     if (force) {
@@ -396,6 +400,25 @@ readTool("job_status",
     return text(lines.join("\n"));
   },
 );
+
+// ---- Prompts (workflow templates the user can pick) and resources (data a client can attach).
+for (const p of PROMPTS) {
+  const argsSchema = Object.fromEntries(Object.entries(p.args).map(([k, v]) => [k, v.optional ? z.string().optional().describe(v.description) : z.string().describe(v.description)]));
+  (server as any).registerPrompt(
+    p.name,
+    { title: p.title, description: p.description, ...(Object.keys(argsSchema).length ? { argsSchema } : {}) },
+    (args: Record<string, string | undefined> | undefined) => ({ messages: [{ role: "user", content: { type: "text", text: p.build(args ?? {}) } }] }),
+  );
+}
+const resource = (name: string, uri: string, title: string, description: string, mimeType: string, read: () => Promise<string> | string) =>
+  server.registerResource(name, uri, { title, description, mimeType }, async (u) => ({ contents: [{ uri: u.href, mimeType, text: await read() }] }));
+
+resource("machine-profile", "duet://machine/profile", "Machine profile", "Axis limits, heater limits, motor currents and kinematics, from config.g and the live firmware values.", "application/json", async () => JSON.stringify(await getProfile(true), null, 2));
+resource("config-g", "duet://machine/config.g", "config.g", "The machine's config.g from the SD card, with passwords hidden.", "text/plain", async () => redactSecrets(await duet.download("0:/sys/config.g")));
+resource("server-settings", "duet://server/settings", "Server settings", "What is switched on and which limits and thresholds apply (read-only mode, confirmation mode, temperature limits, macros, cameras, supervisor, speed profile).", "application/json", () =>
+  JSON.stringify({ version: "0.1.0", readOnly: cfg.readOnly, confirmMode: parseConfirmMode(process.env.DUET_CONFIRM), maxTemp: cfg.maxTemp, allowedMacros: cfg.macros, cameras: Object.keys(cfg.cameras), supervisor: process.env.DUET_SUPERVISOR === "off" ? "off" : supCfg, idleHeaterMinutes: idleMinutes, speedProfile: formatSpeedProfile(governor.profile) }, null, 2));
+resource("recent-events", "duet://events/recent", "Recent supervisor events", "The last 50 events the server noticed (job, temperature, connection, speed).", "text/plain", () =>
+  recent.slice(-50).map((e) => `${new Date(e.t).toISOString()} [${e.level}] ${e.code}: ${e.message}`).join("\n") || "No events yet.");
 
 // Free the Duet's session when Claude closes the connection (the Duet 2 only has a few sessions).
 const shutdown = () => duet.disconnect().finally(() => process.exit(0));
