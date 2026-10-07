@@ -3,6 +3,8 @@
 MCP-Server (Model Context Protocol), mit dem Claude Code eine **Duet-Maschine (RepRapFirmware)** über LAN/WLAN bedienen kann:
 Status lesen, Dateien verwalten, Kamerabilder ansehen, Achsen referenzieren, Drucke starten und überwachen. Der Server wirkt als Sicherheitsschicht zwischen Claude und der Maschine.
 
+> **Repository:** https://github.com/ATOMICMBAG/Duet3D_MCP (privat; Umbenennung auf `duet-mcp` später möglich).
+>
 > **Lizenz:** noch nicht festgelegt (`UNLICENSED` in `package.json`, siehe Schritt B7). Bis dahin ist das Repository privat.
 >
 > **Inoffizielles Community-Projekt.** Nicht von Duet3D. Der Name `duet-mcp` bewusst ohne Firmenmarke.
