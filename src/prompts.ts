@@ -9,7 +9,7 @@ export const INSTRUCTIONS = [
   "Start every session with get_machine_info (board, firmware, how far it is verified) and job_status (state, heaters, supervisor events).",
   "Before a print: preflight_gcode on the local file (read-only; optional patched copy), then upload_file, home_axes if axes are not homed, then start_job.",
   "The server asks the human itself for approval (start_job, home_axes, heating, risky G-code). You cannot approve for them and the confirm argument is ignored. If a request is declined or cannot be asked, report it and stop; do not try to work around it.",
-  "Keep answers short. While a job runs, poll job_status every few minutes (not in a tight loop) and use get_camera_snapshot at layer changes. The server supervises temperatures and progress on its own; if job_status shows events such as heatup-timeout, temperature-deviation, over-temperature, no-progress, duet-restarted or connection-lost, tell the user at once and do not resume without their consent.",
+  "Keep answers short. While a job runs, poll job_status every few minutes (not in a tight loop) and use get_camera_snapshot at layer changes (list_cameras says what each view is for; several views can be fetched in one call). The server supervises temperatures and progress on its own; if job_status shows events such as heatup-timeout, temperature-deviation, over-temperature, no-progress, duet-restarted or connection-lost, tell the user at once and do not resume without their consent.",
   "emergency_stop is always available. pause_job and cancel_job never need approval. A cancelled job leaves the heaters on: switch them off with send_gcode (M104 T0 S0, M140 S0) when the user wants that.",
   "Without DUET_READ_ONLY=false only the read tools exist. Config, firmware and limit changes are never possible through this server; the user does them in config.g.",
 ].join("\n");
@@ -86,6 +86,20 @@ export const PROMPTS: PromptDef[] = [
       "2. home_axes (the user is asked to approve).",
       "3. For each point: send_gcode to lift Z to 5 mm, move X/Y to the point (stay inside the limits and about 10-15 mm inside the bed edge), lower Z in small steps while the user checks the gap with a sheet of paper; tell the user which way to turn the screw. Wait for the user after every step.",
       "4. Repeat the round until all points feel the same, then lift Z and report. Offer to switch the heaters off.",
+    ].join("\n"),
+  },
+  {
+    name: "camera_check",
+    title: "Look at the print with the cameras",
+    description: "Look at the machine through the configured cameras for one purpose (overview, first layer, nozzle contact, filament and spool) and describe only what is visible.",
+    args: { focus: { description: "overview, first_layer, nozzle_contact or filament (optional)", optional: true } },
+    build: (a) => [
+      `Look at the machine through its cameras${a.focus ? ` with the focus "${a.focus}"` : ""} and describe what you see.`,
+      "1. list_cameras: read the note of each camera. Choose the views that fit the focus (a side view at bed height shows the line where nozzle and part meet and the first layers; a close-up of the spool and filament path shows tangles, empty spools and filament changes; an overview shows the bed and the whole part). Then get_camera_snapshot with those names in one call.",
+      "2. If a picture is marked dark, say that it is too dark to judge, ask for light, and do not guess.",
+      "3. Describe only what is visible: first layer lines continuous and flat or not, gaps, stringing, lifting corners, material on the nozzle, part loose on the bed, spool position, filament slack. Say what you cannot see from this angle.",
+      "4. A picture is advisory and never proves that the print is fine. If something looks wrong (part loose, spaghetti, nozzle dragging), tell the user immediately and offer pause_job. Do not resume, heat or move anything because of a picture.",
+      "5. Cameras that are missing for the focus: say which view would help (see docs/CAMERAS.md for mounting ideas).",
     ].join("\n"),
   },
   {

@@ -4,6 +4,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/), versions follow 
 
 ## [Unreleased]
 
+### Added
+- Cameras: `list_cameras`, several views in one `get_camera_snapshot` call, camera notes (`DUET_CAMERA_NOTES`), picture width (`DUET_CAMERA_WIDTH`), brightness check, prompt `camera_check`, `docs/CAMERAS.md`.
+
 ## [0.1.0] - not released yet
 
 First version, verified on a Duet 2 WiFi (RepRapFirmware 3.2.2) with real prints.

@@ -1,11 +1,13 @@
 import { readFileSync } from "node:fs";
-import { parseCameras } from "./camera.js";
+import { parseCameras, parseCameraNotes } from "./camera.js";
 
 export interface Config {
   host: string;
   password: string;
   readOnly: boolean;
   cameras: Record<string, string>;
+  cameraNotes?: Record<string, string>;
+  cameraWidth?: number;
   macros: string[];
   maxTemp: { bed: number; tool: number };
 }
@@ -39,6 +41,8 @@ export function loadConfig(env = process.env): Config {
     // Safe by default: control tools stay disabled until DUET_READ_ONLY=false.
     readOnly: (env.DUET_READ_ONLY ?? "true").toLowerCase() !== "false",
     cameras: parseCameras(env),
+    cameraNotes: parseCameraNotes(env),
+    cameraWidth: env.DUET_CAMERA_WIDTH !== undefined && env.DUET_CAMERA_WIDTH !== "" ? Math.max(0, Number(env.DUET_CAMERA_WIDTH) || 0) : 960,
     macros: (env.DUET_MACROS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     maxTemp: { bed: num(env.DUET_MAX_BED_TEMP, 100), tool: num(env.DUET_MAX_TOOL_TEMP, 260) },
   };

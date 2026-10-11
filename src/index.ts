@@ -5,7 +5,7 @@ import { z } from "zod";
 import { loadConfig, loadDotEnv } from "./config.js";
 import { DuetClient } from "./duet.js";
 import { checkGcode } from "./guard.js";
-import { grabFrame, listDshowDevices } from "./camera.js";
+import { brightnessLabel, grabFrame, listDshowDevices, processFrame, sourceKind } from "./camera.js";
 import { mergeLive, parseConfig, redactSecrets, type MachineProfile } from "./profile.js";
 import { homeAxes, orderAxes } from "./homing.js";
 import { describeCompat, formatCompat } from "./compat.js";
@@ -122,18 +122,41 @@ readTool("get_endstops", { description: "Current endstop states (triggered or no
   return json((es as any[]).map((e, i) => (e ? { axis: axes[i]?.letter ?? `#${i}`, triggered: !!e.triggered, type: e.type } : null)).filter(Boolean));
 });
 
-readTool("get_camera_snapshot", { description: `Fetch a still image from a configured camera to inspect the print or workspace. Cameras: ${Object.keys(cfg.cameras).join(", ") || "none configured (set DUET_CAMERAS or DUET_CAMERA_URL)"}.`, inputSchema: { camera: z.string().optional() } }, async ({ camera }) => {
-  const names = Object.keys(cfg.cameras);
+const cameraNames = () => Object.keys(cfg.cameras);
+const cameraLabel = (n: string) => `${n} (${sourceKind(cfg.cameras[n])})${cfg.cameraNotes?.[n] ? `: ${cfg.cameraNotes[n]}` : ""}`;
+
+readTool("list_cameras", { description: "List the configured cameras with their kind and the note that says what each view is for (for example side view at bed height, spool close-up). Addresses are not shown.", inputSchema: {} }, async () => {
+  const names = cameraNames();
+  return names.length ? text(names.map(cameraLabel).join("\n")) : text("No camera configured. Set DUET_CAMERAS=\"name=url,...\" and optionally DUET_CAMERA_NOTES.");
+});
+
+readTool("get_camera_snapshot", {
+  description: "Fetch still images from the configured cameras to inspect the print or workspace; each picture comes with its camera note and a brightness check (dark / ok / bright). Use list_cameras to see what each view is for. Pass several names (or \"all\") to get several views in one call, at most 4. Pictures are advisory: describe what you see, never claim the print is fine, and never act on a picture alone other than pausing.",
+  inputSchema: {
+    camera: z.string().optional().describe("Camera name, or \"all\" for every camera (at most 4). Default: the first camera"),
+    cameras: z.array(z.string()).max(4).optional().describe("Several camera names at once"),
+  },
+}, async ({ camera, cameras }) => {
+  const names = cameraNames();
   if (!names.length) return fail("No camera configured. Set DUET_CAMERA_URL (http snapshot/MJPEG, rtsp://, dshow:<device>) or DUET_CAMERAS=\"name=url,...\".");
-  const name = camera ?? names[0];
-  const src = cfg.cameras[name];
-  if (!src) return fail(`Unknown camera "${name}". Available: ${names.join(", ")}`);
-  try {
-    const f = await grabFrame(src);
-    return { content: [{ type: "image" as const, data: f.data.toString("base64"), mimeType: f.mimeType }] };
-  } catch (e) {
-    return fail(`Camera "${name}" failed: ${(e as Error).message}`);
+  let wanted: string[] = cameras?.length ? cameras : camera === "all" ? names : [camera ?? names[0]];
+  if (wanted.length > 4) wanted = wanted.slice(0, 4);
+  const unknown = wanted.filter((n) => !cfg.cameras[n]);
+  if (unknown.length) return fail(`Unknown camera "${unknown.join('", "')}". Available: ${names.join(", ")}`);
+  const content: ({ type: "image"; data: string; mimeType: string } | { type: "text"; text: string })[] = [];
+  let ok = 0;
+  for (const name of wanted) {
+    try {
+      const f = await processFrame(await grabFrame(cfg.cameras[name]), cfg.cameraWidth ?? 960);
+      const light = f.brightness === undefined ? (f.note ?? "brightness unknown") : `brightness ${brightnessLabel(f.brightness)} (${f.brightness}/255)`;
+      content.push({ type: "text", text: `${cameraLabel(name)} - ${light}${f.brightness !== undefined && brightnessLabel(f.brightness) === "dark" ? ". Too dark to judge: say so instead of guessing" : ""}` });
+      content.push({ type: "image", data: f.data.toString("base64"), mimeType: f.mimeType });
+      ok++;
+    } catch (e) {
+      content.push({ type: "text", text: `Camera "${name}" failed: ${(e as Error).message}` });
+    }
   }
+  return { content, ...(ok === 0 ? { isError: true } : {}) };
 });
 
 readTool("list_local_cameras", { description: "List video devices on the PC running this server (DirectShow, Windows). A phone used as webcam (DroidCam, Iriun, Camo, Phone Link) appears here; use its name as DUET_CAMERAS=\"name=dshow:<device name>\".", inputSchema: {} }, async () => text(await listDshowDevices()));

@@ -84,3 +84,60 @@ export function listDshowDevices(): Promise<string> {
     p.on("close", () => resolve(out.split(/\r?\n/).filter((l) => /\(video\)/.test(l)).join("\n") || out.trim()));
   });
 }
+
+/**
+ * Optional description per camera, so the model knows what each view is for:
+ *   DUET_CAMERA_NOTES="side=Side view at bed height, shows the nozzle touching the part;spool=Close-up of spool and filament path"
+ * Entries are separated by ";".
+ */
+export function parseCameraNotes(env: Record<string, string | undefined>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const part of (env.DUET_CAMERA_NOTES ?? "").split(";")) {
+    const i = part.indexOf("=");
+    if (i > 0 && part.slice(i + 1).trim()) out[part.slice(0, i).trim()] = part.slice(i + 1).trim();
+  }
+  return out;
+}
+
+/** What kind of source this is, without the address (it may contain a password). */
+export function sourceKind(source: string): string {
+  if (source.startsWith("dshow:")) return "local webcam (dshow)";
+  if (source.startsWith("rtsp://")) return "RTSP stream";
+  return "HTTP snapshot / MJPEG";
+}
+
+export type Brightness = "dark" | "ok" | "bright";
+export function brightnessLabel(mean: number): Brightness {
+  return mean < 30 ? "dark" : mean > 230 ? "bright" : "ok";
+}
+
+export interface ProcessedFrame extends Frame { brightness?: number; note?: string }
+
+function runFfmpeg(args: string[], input: Buffer): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const p = spawn(process.env.FFMPEG_PATH || "ffmpeg", ["-loglevel", "error", ...args]);
+    const chunks: Buffer[] = [];
+    const timer = setTimeout(() => { p.kill(); reject(new Error("ffmpeg timed out")); }, 15000);
+    p.stdout.on("data", (c) => chunks.push(c));
+    p.on("error", (e) => { clearTimeout(timer); reject(e); });
+    p.on("close", () => { clearTimeout(timer); const d = Buffer.concat(chunks); d.length ? resolve(d) : reject(new Error("ffmpeg returned nothing")); });
+    p.stdin.on("error", () => undefined);
+    p.stdin.end(input);
+  });
+}
+
+/**
+ * Shrinks the picture to at most `width` pixels (saves the model's tokens) and measures the mean brightness
+ * (so "too dark" can be reported instead of guessed). Needs ffmpeg; without it the original is returned with a note.
+ */
+export async function processFrame(frame: Frame, width: number): Promise<ProcessedFrame> {
+  try {
+    const gray = await runFfmpeg(["-i", "pipe:0", "-vf", "scale=16:16,format=gray", "-frames:v", "1", "-f", "rawvideo", "pipe:1"], frame.data);
+    const mean = gray.reduce((a, b) => a + b, 0) / gray.length;
+    let data = frame.data;
+    if (width > 0) data = await runFfmpeg(["-i", "pipe:0", "-vf", `scale='min(${width},iw)':-2`, "-q:v", "4", "-frames:v", "1", "-f", "image2pipe", "-vcodec", "mjpeg", "pipe:1"], frame.data);
+    return { data, mimeType: "image/jpeg", brightness: Math.round(mean) };
+  } catch {
+    return { ...frame, note: "ffmpeg not usable: picture not resized, brightness unknown" };
+  }
+}
