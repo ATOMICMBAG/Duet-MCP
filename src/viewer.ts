@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isPictureFile, mimeOf, renderIndex } from "./images.js";
+import { COCKPIT_HTML, COCKPIT_JS } from "./cockpit-ui.js";
 
 /**
  * A tiny live viewer for the camera pictures (DUET_VIEWER_PORT, off by default).
@@ -15,6 +16,7 @@ export interface ViewerOptions {
   getDir: () => string | undefined;
   getNotes: () => Record<string, string>;
   getStatus: () => string;
+  getCockpit?: () => unknown | Promise<unknown>; // the data of the cockpit page (/api/cockpit)
 }
 
 export interface Viewer { url: string; port: number; close: () => Promise<void> }
@@ -22,11 +24,11 @@ export interface Viewer { url: string; port: number; close: () => Promise<void> 
 export function startViewer(o: ViewerOptions): Promise<Viewer | undefined> {
   return new Promise((resolve) => {
     let port = o.port;
-    const server = http.createServer((req, res) => {
+    const server = http.createServer(async (req, res) => {
       const send = (code: number, body: string | Buffer, type = "text/plain; charset=utf-8") => {
         res.writeHead(code, {
           "content-type": type, "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer",
-          "content-security-policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'",
+          "content-security-policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'",
         });
         res.end(req.method === "HEAD" ? undefined : body);
       };
@@ -35,7 +37,14 @@ export function startViewer(o: ViewerOptions): Promise<Viewer | undefined> {
       if (req.method !== "GET" && req.method !== "HEAD") return send(405, "Method not allowed");
       const path = (req.url ?? "/").split("?")[0];
       const dir = o.getDir();
-      if (path === "/" || path === "/index.html") {
+      if (o.getCockpit) {
+        if (path === "/" || path === "/index.html") return send(200, COCKPIT_HTML, "text/html; charset=utf-8");
+        if (path === "/app.js") return send(200, COCKPIT_JS, "text/javascript; charset=utf-8");
+        if (path === "/api/cockpit") {
+          try { return send(200, JSON.stringify(await o.getCockpit()), "application/json; charset=utf-8"); } catch (e) { return send(500, JSON.stringify({ error: (e as Error).message }), "application/json; charset=utf-8"); }
+        }
+      }
+      if (path === "/pictures" || (!o.getCockpit && (path === "/" || path === "/index.html"))) {
         return send(200, renderIndex(dir ?? "", o.getNotes(), new Date(), { embed: false, status: o.getStatus(), refreshSeconds: 5 }), "text/html; charset=utf-8");
       }
       const m = /^\/img\/([^/\\]+)$/.exec(path);

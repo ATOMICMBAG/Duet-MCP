@@ -59,9 +59,22 @@ While a job runs, its pictures go into a folder of their own, named after the ti
 
 The assistant tells you where the pictures of a print are and asks whether you want to keep them (keeping is the default). If you do not, it can call `discard_job_images`: you are asked to approve, and only the server's own picture files in the last job folder are deleted (never anything else, and never a folder that does not look like a job folder).
 
-### Live viewer
+### Live viewer and cockpit
 
-The overview page is a file, and the preview pane of the desktop app shows a local file only as a still. For a page that updates itself set `DUET_VIEWER_PORT=8765` (off by default). The server then serves the page on `http://127.0.0.1:8765/` while it runs: it reloads every 5 seconds, shows the newest picture, the next pictures and a line about the machine (state, job, layer, progress, temperatures). Open it in any browser or in the preview pane. It listens on the loopback address only, answers GET for the page and for the picture files and nothing else, and refuses requests whose Host header is not the local address (so a web page on the internet cannot read your pictures). If the port is taken the server continues without the viewer. The viewer lives as long as the MCP server, that is as long as your client session.
+The overview page is a file, and the preview pane of the desktop app shows a local file only as a still. For a page that updates itself set `DUET_VIEWER_PORT=8765` (off by default). The server then serves a **cockpit** on `http://127.0.0.1:8765/` while it runs. Open it in any browser, in the preview pane of the desktop app, or in the VS Code Simple Browser. It is **monitoring only**: it has no buttons, nothing you do there reaches the machine, and every answer and approval stays in the chat. This is meant for the PC in the next room: you see what the printer does and what Claude is waiting for.
+
+What the cockpit shows (updated every 3 seconds):
+
+- **A banner for the one thing that needs you most**: the Duet cannot be reached, the machine is halted, an approval waits for your answer in the chat, the machine waits for a filament change (with the reminder to hurry because the nozzle is hot), a recent warning of the supervisor, or a paused job (with a note when the nozzle is still hot).
+- **Machine**: state, job, layer, progress bar, the firmware's estimate of the time left, speed factor, time since the board started.
+- **Heaters and fans**: bed and nozzle with actual and target temperature and the state (off, heating, holding, above target, still hot, FAULT), fan speeds.
+- **Axes and endstops**: position and "homed" per axis, and a dot per endstop that lights up when the endstop is pressed. The dots are **virtual LEDs**: they are derived from the firmware's data, not read from the board, so compare them with the camera picture (the endstop and heater LEDs on a Duet 2 are described in the Duet documentation).
+- **Camera**: the newest picture and the next ones.
+- **Notices**: the last supervisor events in plain text, and the standing hints (for example: Claude acts only when you write to it; the supervisor watches all the time but cannot call you).
+
+The older picture gallery is still available at `/pictures`.
+
+How it is built and kept safe: the server listens on the loopback address only (127.0.0.1), answers GET only, and refuses requests whose Host header is not the local address (so a web page on the internet cannot read it through DNS rebinding). It serves the page, one script, the data (`/api/cockpit`) and the server's own picture files, nothing else. The script writes every value as text (never as HTML), because texts come from the machine and from the assistant. A Duet 2 has little memory: the cockpit reuses the supervisor's data and adds a few small reads (axes, endstops, fans, speed) at most every 2.5 seconds, and only while the page is open; all requests to the Duet still run one after the other. The cockpit lives as long as the MCP server, that is as long as your client session; when the server stops, the page says so.
 
 ### Periodic pictures (timeline)
 

@@ -36,6 +36,10 @@ export interface ArchiveInput { camera: string; data: Buffer; mimeType: string; 
 
 interface Entry { file: string; time: string; camera: string; layer?: number; auto: boolean }
 
+export type PictureEntry = Entry;
+/** The pictures in a folder, newest first. */
+export function listPictures(dir: string): Entry[] { return existsSync(dir) ? entries(dir) : []; }
+
 function entries(dir: string): Entry[] {
   return readdirSync(dir)
     .map((file) => ({ file, m: FILE.exec(file) }))

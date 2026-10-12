@@ -8,8 +8,9 @@ import { checkGcode } from "./guard.js";
 import { brightnessLabel, exclusive, formatLocalCameras, grabFrame, listDshowDevices, processFrame, sourceKind } from "./camera.js";
 import { remotePath } from "./paths.js";
 import { appendAudit } from "./audit.js";
-import { archiveImage, discardFolder, imageSettings, isPictureFile, stamp } from "./images.js";
+import { archiveImage, discardFolder, imageSettings, isPictureFile, listPictures, stamp } from "./images.js";
 import { startViewer } from "./viewer.js";
+import { buildCockpit, type CockpitExtra } from "./cockpit.js";
 import { mergeLive, parseConfig, redactSecrets, type MachineProfile } from "./profile.js";
 import { homeAxes, orderAxes } from "./homing.js";
 import { describeCompat, formatCompat } from "./compat.js";
@@ -63,8 +64,10 @@ async function elicit(req: ConfirmRequest): Promise<"accept" | "decline" | "unsu
   } catch { return "unsupported"; } // the client refused the request type: fall back to the next way to ask
 }
 const confirmer = makeConfirmer({ mode: parseConfirmMode(process.env.DUET_CONFIRM), elicit, dialog: systemDialog(Number(process.env.DUET_CONFIRM_TIMEOUT ?? 120)) });
+let pendingApproval: { title: string; since: number } | undefined; // shown in the cockpit while the user is being asked
 async function ask(title: string, message: string, modelConfirmed: boolean) {
-  const r = await confirmer({ title, message, modelConfirmed });
+  pendingApproval = { title, since: Date.now() };
+  const r = await confirmer({ title, message, modelConfirmed }).finally(() => { pendingApproval = undefined; });
   audit({ tool: "confirmation", title, approved: r.approved, via: r.via });
   return r;
 }
@@ -377,7 +380,7 @@ async function collect(): Promise<Sample> {
     if (!h) return;
     hs.push({ role: roles!.bed.has(i) ? "bed" : roles!.tool.has(i) ? "tool" : "other", current: h.current, target: h.state === "active" ? h.active : h.state === "standby" ? h.standby : 0, state: h.state });
   });
-  return { t: now(), status, heaters: hs, filePosition: job.filePosition ?? 0, fileSize: job.file?.size ?? 0, fileName: job.file?.fileName, layer: job.layer ?? 0, upTime: state.upTime, messageBox: parseMessageBox(state.messageBox) };
+  return { t: now(), status, heaters: hs, filePosition: job.filePosition ?? 0, fileSize: job.file?.size ?? 0, fileName: job.file?.fileName, layer: job.layer ?? 0, upTime: state.upTime, messageBox: parseMessageBox(state.messageBox), timeLeft: typeof job.timesLeft?.file === "number" ? job.timesLeft.file : undefined };
 }
 
 // Speed profile per layer (M220): DUET_SPEED_PROFILE="1:30,2:50,3:80,6:100" or the set_speed_profile tool.
@@ -561,12 +564,43 @@ resource("server-settings", "duet://server/settings", "Server settings", "What i
 resource("recent-events", "duet://events/recent", "Recent supervisor events", "The last 50 events the server noticed (job, temperature, connection, speed).", "text/plain", () =>
   recent.slice(-50).map((e) => `${new Date(e.t).toISOString()} [${e.level}] ${e.code}: ${e.message}`).join("\n") || "No events yet.");
 
+// Data of the cockpit page: the supervisor's last sample plus a few small reads (axes, endstops, fans, speed), at most every 2.5 s and only while the page is open.
+let cockpitCache: { at: number; value: unknown } | undefined;
+let cockpitBusy: Promise<unknown> | undefined;
+async function cockpitCollect() {
+  let sample = lastSample;
+  let connection = { ok: true, text: "connected" };
+  const extra: CockpitExtra = {};
+  try {
+    if (!sample || Date.now() - sample.t > 4000) sample = await collect();
+    try {
+      const axes: any[] = await duet.model("move.axes");
+      extra.axes = axes.filter(Boolean).map((a) => ({ letter: String(a.letter), position: Number(a.machinePosition ?? a.userPosition ?? 0), homed: !!a.homed }));
+      const names = extra.axes.map((a) => a.letter);
+      const es: any[] = await duet.model("sensors.endstops");
+      extra.endstops = es.map((e, n) => (e ? { axis: names[n] ?? `#${n}`, triggered: !!e.triggered } : undefined)).filter((e): e is { axis: string; triggered: boolean } => !!e);
+      const fans: any[] = await duet.model("fans").catch(() => []);
+      extra.fans = (fans ?? []).map((f, n) => (f ? { name: String(f.name || n), pct: Math.round(Number(f.actualValue ?? f.requestedValue ?? 0) * 100) } : undefined)).filter((f): f is { name: string; pct: number } => !!f);
+      extra.speedPct = await speedPct();
+    } catch (e) { extra.error = (e as Error).message; }
+  } catch (e) { connection = { ok: false, text: (e as Error).message }; }
+  const dir = jobPictures?.dir ?? images.dir;
+  const list = dir ? listPictures(dir) : [];
+  return buildCockpit({ now: Date.now(), readOnly: cfg.readOnly, cameras: cameraNames(), connection, sample, extra, pendingApproval, events: recent, pictures: { count: list.length, newest: list[0], recent: list.slice(0, 13) } });
+}
+function cockpit(): Promise<unknown> | unknown {
+  if (cockpitCache && Date.now() - cockpitCache.at < 2500) return cockpitCache.value;
+  cockpitBusy ??= cockpitCollect().then((v) => { cockpitCache = { at: Date.now(), value: v }; return v; }).finally(() => { cockpitBusy = undefined; });
+  return cockpitBusy;
+}
+
 // Live picture viewer (DUET_VIEWER_PORT): the page reloads itself, so it also works in the preview pane, which shows plain local files only as a still.
 if (images.dir && images.viewerPort) {
   const v = await startViewer({
     port: images.viewerPort,
     getDir: () => jobPictures?.dir ?? images.dir,
     getNotes: () => cfg.cameraNotes ?? {},
+    getCockpit: cockpit,
     getStatus: () => {
       const s = lastSample;
       if (!s) return "No machine data yet.";

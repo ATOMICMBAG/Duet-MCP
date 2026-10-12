@@ -23,6 +23,7 @@ export interface Sample {
   layer?: number; // firmware job.layer, 1 = first layer
   upTime?: number; // seconds since the board booted (state.upTime); a drop means the board restarted
   messageBox?: MessageBox; // state.messageBox: a message the firmware shows (M291), possibly waiting for an answer
+  timeLeft?: number; // job.timesLeft.file: the firmware's estimate in seconds (shown in the cockpit, not used by the rules)
 }
 
 export interface SupervisorConfig {

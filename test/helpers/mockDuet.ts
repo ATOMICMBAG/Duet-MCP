@@ -34,7 +34,7 @@ export async function startMockDuet(initial?: Partial<MockState>) {
   const state: MockState = {
     status: "idle",
     heaters: [{ current: 22, active: 0, standby: 0, state: "active" }, { current: 22, active: 0, standby: 0, state: "active" }],
-    job: { layer: 0, filePosition: 0, file: { size: 1000, fileName: "0:/gcodes/test.gcode" } },
+    job: { layer: 0, filePosition: 0, file: { size: 1000, fileName: "0:/gcodes/test.gcode" }, timesLeft: { file: 600 } },
     gcodes: [],
     speedFactor: 1,
     upTime: 1000,
@@ -67,6 +67,7 @@ export async function startMockDuet(initial?: Partial<MockState>) {
     tools: () => [{ heaters: [1] }],
     job: () => state.job,
     "move.speedFactor": () => state.speedFactor,
+    fans: () => [{ name: "Part", requestedValue: 0.3, actualValue: 0.3, rpm: 0 }, null],
     boards: () => state.boards,
     sensors: () => state.sensors,
     "sensors.endstops": () => (state.sensors as any).endstops,
