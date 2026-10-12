@@ -1,5 +1,5 @@
 {
-  "name": "duet-mcp",
+  "name": "@atomicmbag/duet-mcp",
   "version": "0.1.0",
   "description": "MCP server for Duet (RepRapFirmware) machines: status, files, camera, guarded G-code",
   "keywords": [
@@ -20,6 +20,9 @@
     "url": "git+https://github.com/ATOMICMBAG/Duet-MCP.git"
   },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "bin": {
     "duet-mcp": "dist/index.js",

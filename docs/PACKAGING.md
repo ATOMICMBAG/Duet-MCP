@@ -2,15 +2,17 @@
 
 ## npm
 
-**The name `duet-mcp` is taken** on npm by an unrelated project (a shared JSON document editor, version 0.8.0, created in September 2026), so this package must be published under another name. Checked on 2026-10-12 and free at that time: `@atomicmbag/duet-mcp` (scoped; needs an npm user or organisation named `atomicmbag`), `reprap-duet-mcp`, `rrf-mcp`, `duet-rrf-mcp`, `mcp-duet`, `duet-printer-mcp`, `duet3d-mcp` (avoid: it uses the company brand, and this is an unofficial project). Re-check with `npm view <name>` right before publishing; a 404 means free.
+**Package name: `@atomicmbag/duet-mcp`** (decided 2026-10-13). The plain name `duet-mcp` is taken on npm by an unrelated project (a shared JSON document editor, version 0.8.0, created in September 2026), and it is a good reason for a scoped name anyway: it shows who publishes the package and avoids mix-ups. Checked on 2026-10-12: `@atomicmbag/duet-mcp` was free. Other names that were free then, in case the scope cannot be used: `reprap-duet-mcp`, `rrf-mcp`, `duet-rrf-mcp`, `mcp-duet`, `duet-printer-mcp` (not `duet3d-mcp`: that is the company brand, and this is an unofficial project).
 
-Until the name is chosen, nothing in the documentation tells users to run `npx duet-mcp` (they would run the other project).
+A scoped package belongs to an npm user or organisation of the same name, so the npm user (or an organisation) called `atomicmbag` must exist and be the publisher; `package.json` has `publishConfig.access = public` so that `npm publish` makes it public.
+
+`package.json` already carries the new name. Nothing is published yet, so the npm page of that name does not exist until the first release. Until then the documentation says to install from source and does not tell anyone to run `npx duet-mcp` (they would run the other project).
 
 `npm pack --dry-run` shows what ships (compiled `dist/`, licence, README, safety documents, `docs/*.md`, `.env.example`). Publishing is done by the maintainer, see [RELEASE.md](RELEASE.md). After publishing, the commands are:
 
 ```bash
-claude mcp add duet -- npx -y <package name>
-npx -p <package name> duet-mcp-verify-audit duet-mcp-audit.log
+claude mcp add duet -- npx -y @atomicmbag/duet-mcp
+npx -p @atomicmbag/duet-mcp duet-mcp-verify-audit duet-mcp-audit.log
 ```
 
 (Prefer a `.env` file next to where the server lives over putting the password on a command line. The commands `duet-mcp` and `duet-mcp-verify-audit` stay the same whatever the package is called.)
