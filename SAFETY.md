@@ -34,6 +34,7 @@ The first layer stays the firmware (RepRapFirmware): temperature limits (`M143`)
 
 - **Jammed or broken filament**, a clogged nozzle, a part coming loose. The Duet does not measure the feed. Only a filament monitor or your own eyes on the camera help.
 - **Fire or smoke.** A camera is not a safety device. Pictures are advisory: the AI can misjudge them, the server does not analyse them, and the AI is told never to resume, heat or move because of a picture alone. See [docs/CAMERAS.md](docs/CAMERAS.md).
+- **An assistant that is not looking.** An AI assistant acts only when it is called or when you write to it; it cannot watch the machine in the background, even if it says so. Only the server's supervisor watches continuously (and it can pause or switch heaters off, but it cannot message you). Stay at the machine and ask for a status regularly.
 - **Failure of the server, the PC or the network.** If the MCP server is not running, the Duet keeps printing on its own without its supervision. The machine must be built so that this is harmless even without this software.
 - **Defective hardware** that the firmware does not notice (for example a wrongly mounted thermistor, so the heater block is measured too cold). The server polls only every 10 seconds.
 - **A wrong or manipulated AI.** The checks are rules in code, not judgment. A model can misunderstand a request; that is why risky steps need your approval and why you must read each question.
@@ -90,6 +91,7 @@ Die erste Ebene bleibt die Firmware (RepRapFirmware): Temperaturgrenzen (`M143`)
 
 - **Klemmendes oder gerissenes Filament**, verstopfte Düse, sich lösendes Druckteil. Die Duet misst den Vorschub nicht. Dafür hilft nur ein Filamentsensor oder dein Blick auf die Kamera.
 - **Feuer oder Rauch.** Eine Kamera ist kein Sicherheitsgerät. Bilder sind nur ein Hinweis: Die KI kann sie falsch deuten, der Server wertet sie nicht aus, und die KI soll wegen eines Bildes allein nie fortsetzen, heizen oder bewegen. Siehe [docs/CAMERAS.md](docs/CAMERAS.md).
+- **Ein Assistent, der nicht hinsieht.** Ein KI-Assistent handelt nur, wenn er aufgerufen wird oder du ihm schreibst; er kann die Maschine nicht im Hintergrund beobachten, auch wenn er das sagt. Nur der Supervisor im Server überwacht dauerhaft (er kann pausieren oder Heizungen ausschalten, dir aber nichts mitteilen). Bleib an der Maschine und frage regelmäßig nach dem Stand.
 - **Ausfall von Server, PC oder Netzwerk.** Läuft der MCP-Server nicht, druckt die Duet allein weiter, ohne Überwachung durch ihn. Auch ohne diese Software muss die Maschine so gebaut sein, dass das gefahrlos ist.
 - **Defekte Hardware**, die die Firmware nicht bemerkt (z. B. falsch montierter Thermistor, der Heizblock wird nicht heiß genug gemessen). Der Server pollt nur alle 10 Sekunden.
 - **Eine falsche oder manipulierte KI.** Die Prüfungen sind Regeln im Code, kein Urteilsvermögen. Ein Modell kann eine Anfrage missverstehen; deshalb brauchen riskante Schritte deine Zustimmung und du musst jede Frage lesen.

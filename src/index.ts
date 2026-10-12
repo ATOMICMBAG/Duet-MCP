@@ -115,10 +115,12 @@ readTool("get_sensors", { description: "Extra sensors and gadgets: probes (e.g. 
 
 readTool("get_machine_profile", { description: "Safety-relevant settings parsed from config.g (axis limits, heater max temps, motor currents). Read this before planning any motion or heating.", inputSchema: { refresh: z.boolean().optional() } }, async ({ refresh }) => json(await getProfile(refresh)));
 
-readTool("list_files", { description: "List files in a directory on the Duet SD card, e.g. 0:/gcodes, 0:/macros, 0:/sys.", inputSchema: { dir: z.string().default("0:/gcodes") } }, async ({ dir }) => json(await duet.list(dir)));
+readTool("list_files", { description: "List files in a directory on the Duet SD card, e.g. 0:/gcodes, 0:/macros, 0:/sys. Parameter dir (path is accepted too); default 0:/gcodes.", inputSchema: { dir: z.string().optional(), path: z.string().optional().describe("Same as dir") } }, async ({ dir, path }) => json(await duet.list(dir ?? path ?? "0:/gcodes")));
 
-readTool("read_file", { description: "Read a text file from the SD card (e.g. 0:/sys/config.g, 0:/macros/...). Max 200 kB.", inputSchema: { name: z.string() } }, async ({ name }) => {
-  const t = redactSecrets(await duet.download(name));
+readTool("read_file", { description: "Read a text file from the SD card (e.g. 0:/sys/config.g, 0:/macros/...). Parameter name (path is accepted too). Max 200 kB.", inputSchema: { name: z.string().optional(), path: z.string().optional().describe("Same as name") } }, async ({ name, path }) => {
+  const file = name ?? path;
+  if (!file) return fail("Give the file as name, for example 0:/sys/config.g.");
+  const t = redactSecrets(await duet.download(file));
   return text(t.length > 200_000 ? t.slice(0, 200_000) + "\n[truncated]" : t);
 });
 
@@ -128,6 +130,13 @@ readTool("get_endstops", { description: "Current endstop states (triggered or no
 });
 
 const cameraNames = () => Object.keys(cfg.cameras);
+// When did the assistant last look at the bed? The start approval tells the human if it never did (found in a test: the first picture was taken after the start).
+let lastSnapshotAt = 0;
+const cameraNote = () => {
+  if (!cameraNames().length) return "";
+  const min = (Date.now() - lastSnapshotAt) / 60_000;
+  return lastSnapshotAt && min <= 10 ? `\n\nCamera: a picture was taken ${Math.max(0, Math.round(min))} min ago.` : "\n\nCamera: configured, but NO picture of the bed was taken in the last 10 minutes. Look at the bed yourself.";
+};
 const cameraLabel = (n: string) => `${n} (${sourceKind(cfg.cameras[n])})${cfg.cameraNotes?.[n] ? `: ${cfg.cameraNotes[n]}` : ""}`;
 
 readTool("list_cameras", { description: "List the configured cameras with their kind and the note that says what each view is for (for example side view at bed height, spool close-up). Addresses are not shown.", inputSchema: {} }, async () => {
@@ -161,6 +170,7 @@ readTool("get_camera_snapshot", {
       content.push({ type: "text", text: `Camera "${name}" failed: ${(e as Error).message}` });
     }
   }
+  if (ok > 0) lastSnapshotAt = Date.now();
   return { content, ...(ok === 0 ? { isError: true } : {}) };
 });
 
@@ -261,7 +271,7 @@ control("start_job", `Start a G-code file from 0:/gcodes. Heats and moves the ma
   if (status !== "idle") return fail(`Machine status is "${status}", not idle. Not starting.`);
   const unhomed = Object.entries(await homedMap()).filter(([, h]) => !h).map(([a]) => a);
   if (unhomed.length) return fail(`Axes not homed: ${unhomed.join(", ")}. Run home_axes first.`);
-  const a = await ask("duet-mcp: start print", `Start "${path}" on ${cfg.host}?\n\nThe machine heats up and moves. Please check: bed clear and clean, filament loaded and the spool runs free, and you are present.${governor.profile.length ? `\n\nSpeed profile: ${formatSpeedProfile(governor.profile)}` : ""}`, confirm);
+  const a = await ask("duet-mcp: start print", `Start "${path}" on ${cfg.host}?\n\nThe machine heats up and moves. Please check: bed clear and clean, filament loaded and the spool runs free, and you are present.${cameraNote()}${governor.profile.length ? `\n\nSpeed profile: ${formatSpeedProfile(governor.profile)}` : ""}`, confirm);
   if (!a.approved) return fail(`Not approved (${a.via}): ${a.note}. The print was not started.`);
   // With a speed profile the first step is sent BEFORE the job so the very first moves already run at that speed.
   const first = governor.prime();

@@ -5,11 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/), versions follow 
 ## [Unreleased]
 
 ### Fixed
+- `list_files` and `read_file` accept `path` as well as `dir`/`name` (an assistant listed the wrong folder silently with `path`).
 - `upload_file` tries again (up to 3 times) after a transient HTTP 500 from a busy Duet.
 - `M600` and `M226` are refused in `send_gcode`: sent as a command the head stays on the part with a hot nozzle. They belong inside the G-code file.
 - `upload_file` with a bare file name (for example `cube.gcode`) now stores it in `0:/gcodes` (before, the Duet put it in the root directory and `start_job` did not find it). The answer shows the real path.
 
 ### Added
+- The start approval tells the user when a camera is configured but no picture of the bed was taken in the last 10 minutes.
+- The instructions tell the assistant to look at the bed before `start_job`, to ask before `resume_job`, and that it cannot watch the machine between its answers (no promises of background polling).
 - `preflight_gcode` with `filamentChangeAtLayer` writes a copy with `M600` in front of a layer (Cura and PrusaSlicer/OrcaSlicer layer markers).
 - `DUET_AUDIT_READS=on` also logs the read-only tool calls.
 - Tamper-evident audit log: each line carries the checksum of the previous one (`duet-mcp-verify-audit` checks it; optional `DUET_AUDIT_KEY` makes it an HMAC).
