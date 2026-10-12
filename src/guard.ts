@@ -34,6 +34,7 @@ export function checkGcode(gcode: string, cfg: Config, profile: MachineProfile |
     const code = line.split(/\s+/)[0].toUpperCase().replace(/^([GM])0+(\d)/, "$1$2");
 
     if (code === "M112") continue; // emergency stop is always allowed
+    if (code === "M600" || code === "M226") return { ok: false, reason: `${code} belongs inside the G-code file (insert it with preflight_gcode filamentChangeAtLayer, or in the slicer). Sent as a command from here the head stays where it is, on the part, with the nozzle hot (seen on a real Duet 2). To pause now use pause_job (M25 runs pause.g and parks the head).` };
     if (BLOCKED.test(code)) return { ok: false, reason: `${code} is blocked (config/firmware/limit changes must be done by a human via config.g)` };
     if (CONFIRM.test(code) && !confirm) needs.add(`${code} needs approval`);
 

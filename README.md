@@ -99,8 +99,10 @@ Plus **7 prompts** (workflow templates) and **4 resources** (profile, `config.g`
 Every control action, confirmation and supervisor event is written to `duet-mcp-audit.log` (one JSON per line). Each line contains the checksum of the line before it. To check that nothing was inserted, edited or removed (for example by an assistant that wrote a note into the file):
 
 ```bash
-npx duet-mcp-verify-audit duet-mcp-audit.log
+node <path>/dist/verify-audit.js duet-mcp-audit.log
 ```
+
+(Once the package is published on npm, `npx duet-mcp-verify-audit duet-mcp-audit.log` works as well.)
 
 Set `DUET_AUDIT_KEY` to make the checksums an HMAC that nobody without the key can rebuild (use the same key when verifying). The chain does not protect against someone who deletes or rewrites the whole file. Logs from before the chain existed are reported as "not verifiable".
 

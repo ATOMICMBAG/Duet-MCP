@@ -12,9 +12,9 @@ Question: does a Claude that knows nothing about this project find the safe work
    ```bash
    claude mcp add duet --scope local -- node "<path>/dist/index.js"
    ```
-   For the control part add `-e DUET_READ_ONLY=false`, and for a camera `-e DUET_CAMERAS="notebook=dshow:Integrated Camera"` and `-e DUET_CAMERA_NOTES="notebook=Overview of the machine"`.
+   For the control part add `-e DUET_READ_ONLY=false`, `-e DUET_AUDIT_READS=on` (also logs the read-only calls such as `get_camera_snapshot`, so you can see afterwards what it looked at), and for a camera `-e DUET_CAMERAS="notebook=dshow:Integrated Camera"` and `-e DUET_CAMERA_NOTES="notebook=Overview of the machine"`.
 4. Start `claude` in that folder. `/mcp` must list `duet` as connected.
-5. Machine: clean bed, short test print (small cube or pyramid, a few minutes), heated slightly, emergency stop within reach. For the filament change test insert `M600` into the G-code (Cura: Extensions, Post Processing, "Filament Change"; or by hand before a layer line) and make sure `0:/sys/filament-change.g` has real content (see [FILAMENT_CHANGE.md](FILAMENT_CHANGE.md)).
+5. Machine: clean bed, short test print (small cube or pyramid, a few minutes), heated slightly, emergency stop within reach. For the filament change test get a G-code with `M600` built in: let `preflight_gcode` write it (`filamentChangeAtLayer: 5` writes a copy with `M600` in front of layer 5), or use the slicer's own filament change script. **Do not send `M600` as a command from the console or from the assistant**: it does not park the head (seen on a real Duet 2, the nozzle stayed on the part), it belongs inside the file and make sure `0:/sys/filament-change.g` has real content (see [FILAMENT_CHANGE.md](FILAMENT_CHANGE.md)).
 
 ## Part 1: read-only (no risk)
 
@@ -51,4 +51,4 @@ Look at the checklist below. Say nothing about `preflight_gcode`, `upload_file` 
 
 ## What to report
 
-First run `npx duet-mcp-verify-audit duet-mcp-audit.log` (or `node <path>/dist/verify-audit.js duet-mcp-audit.log`): it must say the chain is intact, otherwise the log contains lines the server did not write. Then copy the tools it called in order (the audit log lists them) and note every place where it hesitated, guessed, skipped a step or needed your help. Every miss means a tool description, the instructions or a prompt needs to be improved; send the notes (without passwords and IP addresses) to the maintainer or open an issue.
+First run `node <path>/dist/verify-audit.js duet-mcp-audit.log` (`npx duet-mcp-verify-audit` only works once the package is on npm): it must say the chain is intact, otherwise the log contains lines the server did not write. Then copy the tools it called in order (the audit log lists them) and note every place where it hesitated, guessed, skipped a step or needed your help. Every miss means a tool description, the instructions or a prompt needs to be improved; send the notes (without passwords and IP addresses) to the maintainer or open an issue.

@@ -35,6 +35,7 @@ Dieser Server ist die zweite Ebene. Er ersetzt weder Notaus noch Aufsicht.
 | 24 | Geschwindigkeitsprofil nur zwischen 10 und 150 %; der Server setzt `M220` nur bei Stufenwechsel und stellt nach dem Job auf 100 % zurück, wenn er selbst gesetzt hat | `speedprofile.ts` |
 | 25 | Meldungen der Maschine (M291, Filamentwechsel nach M600) erscheinen in `job_status` und als Supervisor-Ereignis. Beantwortet werden sie nur mit `acknowledge_message` nach Zustimmung des Menschen (M292, in `send_gcode` ohne Zustimmung ebenfalls gesperrt); Meldungen, die einen Wert verlangen, bleiben beim Menschen | `messagebox.ts`, `supervisor.ts`, `index.ts`, `guard.ts` |
 | 26 | Lange Pause mit heißer Düse: nach `DUET_PAUSE_HOT_MINUTES` (Standard 5, 0 = aus) warnt der Supervisor (`long-pause-hot`), nach der dreifachen Zeit meldet er einen Fehler. Er meldet nur; der Mensch entscheidet (fortsetzen oder abbrechen und Heizungen aus) | `supervisor.ts` |
+| 27 | `M600` und `M226` werden in `send_gcode` abgelehnt: als Befehl parken sie den Kopf nicht (an einer echten Duet 2 blieb die Düse bei heißen Heizungen auf dem Teil stehen). Stattdessen `pause_job` (M25 führt `pause.g` aus) oder `M600` in die G-Code-Datei einbauen (`preflight_gcode` mit `filamentChangeAtLayer`) | `guard.ts` |
 
 ## Geplant
 - Rückfallebene, wenn der MCP-Server selbst nicht läuft (Claude beendet, PC aus): Die Duet druckt dann allein weiter. Das lässt sich nur in der Firmware lösen (Filamentsensor, Makros, Zeitlimits), nicht im Server.

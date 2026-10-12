@@ -19,6 +19,7 @@ export interface MockState {
   pageSize: number; // entries per rr_filelist answer; `next` points to the rest, like the real firmware
   uploads: Record<string, number>; // remote name -> uploaded bytes (rr_upload)
   uploadErr: number; // rr_upload answers this err code (0 = ok)
+  uploadHttpFail: number; // the next N uploads get HTTP 500 (a busy Duet)
   corruptUploads: number; // the next N uploads fail the CRC32 check (simulates a bad WiFi transfer)
   uploadAttempts: number; // rr_upload requests received
   useSessionKeys: boolean; // newer firmware: rr_connect?sessionKey=yes returns a key that every later request must send as X-Session-Key
@@ -46,6 +47,7 @@ export async function startMockDuet(initial?: Partial<MockState>) {
     pageSize: 1000,
     uploads: {},
     uploadErr: 0,
+    uploadHttpFail: 0,
     corruptUploads: 0,
     uploadAttempts: 0,
     useSessionKeys: false,
@@ -116,6 +118,7 @@ export async function startMockDuet(initial?: Partial<MockState>) {
       const chunks: Buffer[] = [];
       req.on("data", (c) => chunks.push(c));
       req.on("end", () => {
+        if (state.uploadHttpFail > 0) { state.uploadHttpFail--; state.uploadAttempts++; res.writeHead(500).end(); return; }
         const name = u.searchParams.get("name") ?? "";
         const body = Buffer.concat(chunks);
         const wanted = u.searchParams.get("crc32");

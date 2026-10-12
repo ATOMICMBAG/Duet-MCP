@@ -160,11 +160,17 @@ export class DuetClient {
     const crc = crc32(body).toString(16);
     for (let attempt = 1; ; attempt++) {
       let err = 0;
-      await this.call(async () => {
-        const time = encodeURIComponent(new Date().toISOString().slice(0, 19));
-        const r = await (await this.raw(`/rr_upload?name=${encodeURIComponent(remotePath)}&time=${time}&crc32=${crc}`, { method: "POST", body })).json();
-        err = r.err;
-      }, false);
+      try {
+        await this.call(async () => {
+          const time = encodeURIComponent(new Date().toISOString().slice(0, 19));
+          const r = await (await this.raw(`/rr_upload?name=${encodeURIComponent(remotePath)}&time=${time}&crc32=${crc}`, { method: "POST", body })).json();
+          err = r.err;
+        }, false);
+      } catch (e) {
+        // The Duet answers HTTP 500 now and then when it is busy (seen on a real Duet 2 right after connecting). An upload only overwrites the same file, so trying again is safe.
+        if (e instanceof DuetError && e.kind === "http" && /HTTP 5\d\d/.test(e.message) && attempt < attempts) { await wait(this.backoffMs * 2 * attempt); continue; }
+        throw e;
+      }
       if (err === 0) return;
       if (attempt >= attempts) throw new DuetError("rejected", `Upload of ${remotePath} failed after ${attempt} attempts (err=${err}; the checksum did not match or the SD card refused the file).`);
     }

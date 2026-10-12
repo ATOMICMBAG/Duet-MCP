@@ -84,9 +84,11 @@ const control = (name: string, description: string, inputSchema: any, handler: (
 };
 
 // Tool hints for clients (readOnlyHint / destructiveHint). They are hints only; the real gate is the confirmation in confirm.ts.
-type ToolHandler = (args: any) => Promise<any> | any;
-const readTool = (name: string, config: any, handler: ToolHandler) => server.registerTool(name, { ...config, annotations: { readOnlyHint: true, openWorldHint: false } }, handler as any);
-const localTool = (name: string, config: any, handler: ToolHandler) => server.registerTool(name, { ...config, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } }, handler as any);
+type ToolHandler = (args: any, extra?: any) => Promise<any> | any;
+// DUET_AUDIT_READS=on also writes the read-only calls (name and arguments) to the audit log, to see what an assistant did during a test.
+const journal = (name: string, handler: ToolHandler): ToolHandler => (process.env.DUET_AUDIT_READS === "on" ? (async (args: any, extra: any) => { audit({ tool: name, args, read: true }); return handler(args, extra); }) as ToolHandler : handler);
+const readTool = (name: string, config: any, handler: ToolHandler) => server.registerTool(name, { ...config, annotations: { readOnlyHint: true, openWorldHint: false } }, journal(name, handler) as any);
+const localTool = (name: string, config: any, handler: ToolHandler) => server.registerTool(name, { ...config, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } }, journal(name, handler) as any);
 const safetyTool = (name: string, config: any, handler: ToolHandler) => server.registerTool(name, { ...config, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false } }, handler as any);
 
 readTool("get_status", { description: "Compact machine state: status, heaters (current/target), axes (position, homed, limits) and the current job (file, layer, progress). For events, supervisor and speed use job_status.", inputSchema: {} }, async () => {
@@ -168,15 +170,16 @@ localTool("preflight_gcode",
   {
     description:
       "Check a local G-code file against this machine BEFORE uploading it: print area vs axis limits, temperatures vs limits, tool selection (T0), G28 in the start block, heating before extrusion, heaters off at the end, config/firmware commands, estimated line width vs nozzle. " +
-      "Read-only. With fixes (select-tool, strip-g28) it writes a patched copy next to the original (<name>.duet.gcode); the original is never modified.",
+      "Read-only. With fixes (select-tool, strip-g28) or filamentChangeAtLayer it writes a patched copy next to the original (<name>.duet.gcode); the original is never modified.",
     inputSchema: {
       file: z.string().describe("Local path to a .gcode / .gco / .g file"),
       nozzle: z.number().positive().optional().describe("Nozzle diameter in mm, to judge the line width"),
       filamentDiameter: z.number().positive().optional(),
       fixes: z.array(z.enum(["select-tool", "strip-g28"])).optional(),
+      filamentChangeAtLayer: z.number().int().min(2).optional().describe("Writes a patched copy with M600 (filament change) in front of this layer, counted like the firmware (1 = first layer, so at least 2). The machine needs 0:/sys/filament-change.g with real content; without it M600 does nothing useful"),
     },
   },
-  async ({ file, nozzle, filamentDiameter, fixes }) => {
+  async ({ file, nozzle, filamentDiameter, fixes, filamentChangeAtLayer }) => {
     if (!/\.(gcode|gco|g)$/i.test(file)) return fail("Only .gcode, .gco or .g files are accepted.");
     let gtext: string;
     try {
@@ -189,8 +192,8 @@ localTool("preflight_gcode",
     const report = analyzeGcode(gtext, opts);
     let out = formatReport(report, basename(file));
     if (!prof) out += "\nNote: machine limits could not be read from the Duet, so print area and limits were NOT checked.";
-    if (fixes?.length) {
-      const fixed = applyFixes(gtext, report, fixes);
+    if (fixes?.length || filamentChangeAtLayer) {
+      const fixed = applyFixes(gtext, report, fixes ?? [], filamentChangeAtLayer);
       if (!fixed.changes.length) out += "\nNo requested fix was applicable; no file written.";
       else {
         const target = file.replace(/(\.[^.\\/]+)$/, ".duet$1");

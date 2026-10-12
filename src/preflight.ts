@@ -229,7 +229,7 @@ export function analyzeGcode(text: string, opt: PreflightOptions = {}): Report {
 export type Fix = "select-tool" | "strip-g28";
 
 /** Returns a patched copy of the text. Only touches the start block; the original is never modified. */
-export function applyFixes(text: string, report: Report, fixes: Fix[]): { text: string; changes: string[] } {
+export function applyFixes(text: string, report: Report, fixes: Fix[], filamentChangeAtLayer?: number): { text: string; changes: string[] } {
   const eol = text.includes("\r\n") ? "\r\n" : "\n";
   const lines = text.split(/\r?\n/);
   const changes: string[] = [];
@@ -245,7 +245,27 @@ export function applyFixes(text: string, report: Report, fixes: Fix[]): { text: 
     lines.splice(insertAt - 1, 0, "T0 ;added by duet-mcp preflight: select tool 0 before heating");
     changes.push(`line ${insertAt}: T0 inserted`);
   }
+  if (filamentChangeAtLayer !== undefined) {
+    const at = findLayerStart(lines, filamentChangeAtLayer);
+    if (at === undefined) changes.push(`no layer marker for layer ${filamentChangeAtLayer} found (Cura ";LAYER:n", PrusaSlicer/OrcaSlicer ";LAYER_CHANGE"): M600 NOT inserted`);
+    else {
+      lines.splice(at.index, 0, "M600 ;added by duet-mcp preflight: filament change before this layer (needs 0:/sys/filament-change.g)");
+      changes.push(`line ${at.index + 1}: M600 inserted before layer ${filamentChangeAtLayer} (${at.marker})`);
+    }
+  }
   return { text: lines.join(eol), changes };
+}
+
+/** Index of the line after which a filament change belongs, in front of layer n (1 = first layer), from the slicer's layer markers. */
+export function findLayerStart(lines: string[], layer: number): { index: number; marker: string } | undefined {
+  if (layer < 2) return undefined; // before the first layer a pause makes no sense (resume_job refuses it as well)
+  const cura = lines.findIndex((l) => l.trim() === `;LAYER:${layer - 1}`);
+  if (cura >= 0) return { index: cura + 1, marker: `;LAYER:${layer - 1}` };
+  let seen = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^;\s*LAYER_CHANGE\b/.test(lines[i].trim()) && ++seen === layer) return { index: i + 1, marker: ";LAYER_CHANGE" };
+  }
+  return undefined;
 }
 
 export function formatReport(r: Report, name = "G-code"): string {
