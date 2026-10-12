@@ -53,7 +53,7 @@ Register it with Claude Code:
 claude mcp add duet -- node "<path>/dist/index.js"
 ```
 
-Once the package is on npm, `claude mcp add duet -- npx -y duet-mcp` will do (set the variables with `-e DUET_HOST=...`). For Claude Desktop there is an `.mcpb` bundle, see [docs/PACKAGING.md](docs/PACKAGING.md).
+**Do not run `npx duet-mcp`:** that npm name belongs to an unrelated project. This server is not on npm yet; it will be published under a different name (see [docs/PACKAGING.md](docs/PACKAGING.md)). Until then install it from source as above. For Claude Desktop there will be an `.mcpb` bundle (same document).
 
 Then ask: "Show me the machine info and job status." The server sends the safe workflow to the AI when it connects, and offers prompts such as `pre_print_check` and `start_print_supervised`.
 
@@ -105,7 +105,7 @@ Every control action, confirmation and supervisor event is written to `duet-mcp-
 node <path>/dist/verify-audit.js duet-mcp-audit.log
 ```
 
-(Once the package is published on npm, `npx duet-mcp-verify-audit duet-mcp-audit.log` works as well.)
+(After the package is published on npm this will also work with `npx -p <package name> duet-mcp-verify-audit duet-mcp-audit.log`.)
 
 Set `DUET_AUDIT_KEY` to make the checksums an HMAC that nobody without the key can rebuild (use the same key when verifying). The chain does not protect against someone who deletes or rewrites the whole file. Logs from before the chain existed are reported as "not verifiable".
 

@@ -1,14 +1,19 @@
 # Packaging
 
-## npm (`npx duet-mcp`)
+## npm
 
-`npm pack --dry-run` shows what ships (compiled `dist/`, licence, README, safety documents, `.env.example`). Publishing is done by the maintainer: `npm publish` runs `prepublishOnly` (build and tests first). Use `npm publish --provenance` from CI later. Then:
+**The name `duet-mcp` is taken** on npm by an unrelated project (a shared JSON document editor, version 0.8.0, created in September 2026), so this package must be published under another name. Checked on 2026-10-12 and free at that time: `@atomicmbag/duet-mcp` (scoped; needs an npm user or organisation named `atomicmbag`), `reprap-duet-mcp`, `rrf-mcp`, `duet-rrf-mcp`, `mcp-duet`, `duet-printer-mcp`, `duet3d-mcp` (avoid: it uses the company brand, and this is an unofficial project). Re-check with `npm view <name>` right before publishing; a 404 means free.
+
+Until the name is chosen, nothing in the documentation tells users to run `npx duet-mcp` (they would run the other project).
+
+`npm pack --dry-run` shows what ships (compiled `dist/`, licence, README, safety documents, `docs/*.md`, `.env.example`). Publishing is done by the maintainer, see [RELEASE.md](RELEASE.md). After publishing, the commands are:
 
 ```bash
-claude mcp add duet -e DUET_HOST=192.168.x.x -e DUET_PASSWORD=... -- npx -y duet-mcp
+claude mcp add duet -- npx -y <package name>
+npx -p <package name> duet-mcp-verify-audit duet-mcp-audit.log
 ```
 
-(Prefer a `.env` file next to where you start the server over putting the password on a command line.)
+(Prefer a `.env` file next to where the server lives over putting the password on a command line. The commands `duet-mcp` and `duet-mcp-verify-audit` stay the same whatever the package is called.)
 
 ## Claude Desktop (`.mcpb`)
 
