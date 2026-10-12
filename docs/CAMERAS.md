@@ -52,6 +52,15 @@ Every picture that `get_camera_snapshot` hands to the assistant is also **saved*
 - The folder has its own `.gitignore` (`*`), so the pictures cannot be committed by accident.
 - Switch it off with `DUET_IMAGE_DIR=off`, or choose another folder with `DUET_IMAGE_DIR=<path>`.
 
+### Periodic pictures (timeline)
+
+Set `DUET_IMAGE_INTERVAL_SECONDS=30` (at least 5, off by default) and the server also takes a picture every 30 seconds **while a job is active** (printing, paused, resuming) plus one last picture when the job ends. These pictures are marked `_auto` in the file name and "auto" on the overview page, so the page becomes a timeline you can watch while you work, **without the assistant being asked anything and without tokens**. The assistant can look at the recent pictures when you ask (they are files in the folder). Details:
+
+- The first two cameras are used. Each capture is one camera grab at a time (a webcam cannot be opened twice, so a snapshot you ask for waits for a running capture).
+- The periodic pictures have their own limit, `DUET_IMAGE_AUTO_KEEP` (default 300), so a long print cannot push out the pictures the assistant analysed (`DUET_IMAGE_KEEP`, default 200).
+- Every periodic picture is logged as `camera-image` with `"auto":true` and its SHA-256, like the others.
+- It needs the supervisor (it reads the machine state from it). If three captures in a row fail, the supervisor reports `image-capture-failed`.
+
 How to look at it:
 
 | Where you work | What you see |

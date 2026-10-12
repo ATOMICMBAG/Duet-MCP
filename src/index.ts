@@ -5,7 +5,7 @@ import { z } from "zod";
 import { loadConfig, loadDotEnv } from "./config.js";
 import { DuetClient } from "./duet.js";
 import { checkGcode } from "./guard.js";
-import { brightnessLabel, formatLocalCameras, grabFrame, listDshowDevices, processFrame, sourceKind } from "./camera.js";
+import { brightnessLabel, exclusive, formatLocalCameras, grabFrame, listDshowDevices, processFrame, sourceKind } from "./camera.js";
 import { remotePath } from "./paths.js";
 import { appendAudit } from "./audit.js";
 import { archiveImage, imageSettings } from "./images.js";
@@ -165,13 +165,13 @@ readTool("get_camera_snapshot", {
   let ok = 0;
   for (const name of wanted) {
     try {
-      const f = await processFrame(await grabFrame(cfg.cameras[name]), cfg.cameraWidth ?? 960);
+      const f = await processFrame(await exclusive(() => grabFrame(cfg.cameras[name])), cfg.cameraWidth ?? 960);
       const light = f.brightness === undefined ? (f.note ?? "brightness unknown") : `brightness ${brightnessLabel(f.brightness)} (${f.brightness}/255)`;
       let saved = "";
       if (images.dir) {
         try {
           const layer = lastSample && lastSample.status !== "idle" ? lastSample.layer : undefined;
-          const a = archiveImage(images.dir, images.keep, { camera: name, data: f.data, mimeType: f.mimeType, layer, notes: cfg.cameraNotes });
+          const a = archiveImage(images.dir, images.keep, { camera: name, data: f.data, mimeType: f.mimeType, layer, notes: cfg.cameraNotes }, new Date(), images.autoKeep);
           audit({ tool: "camera-image", camera: name, file: a.file, sha256: a.sha256, bytes: a.bytes });
           saved = `. Saved: ${a.path}${overviewShown ? "" : `. Overview page with the latest pictures: ${a.indexPath}`}`;
           overviewShown = true;
@@ -427,6 +427,36 @@ control(
   },
   { destructiveHint: false },
 );
+
+// Periodic pictures while a job is active (DUET_IMAGE_INTERVAL_SECONDS, off by default): they fill the archive and the overview page
+// with a timeline, even while the assistant is not asked anything. No analysis, no tokens; the assistant can look at them when the user asks.
+if (images.dir && images.intervalSeconds > 0 && cameraNames().length) {
+  let busy = false;
+  let wasActive = false;
+  let failures = 0;
+  const ACTIVE = ["processing", "paused", "pausing", "resuming"];
+  const timer = setInterval(async () => {
+    const st = lastSample?.status;
+    const active = !!st && ACTIVE.includes(st);
+    const finished = wasActive && st === "idle"; // one last picture of the finished part
+    wasActive = active;
+    if (busy || !(active || finished)) return;
+    busy = true;
+    try {
+      for (const name of cameraNames().slice(0, 2)) {
+        try {
+          const f = await processFrame(await exclusive(() => grabFrame(cfg.cameras[name])), cfg.cameraWidth ?? 960);
+          const a = archiveImage(images.dir!, images.keep, { camera: name, data: f.data, mimeType: f.mimeType, layer: active ? lastSample?.layer : undefined, notes: cfg.cameraNotes, auto: true }, new Date(), images.autoKeep);
+          audit({ tool: "camera-image", camera: name, file: a.file, sha256: a.sha256, bytes: a.bytes, auto: true });
+          failures = 0;
+        } catch (e) {
+          if (++failures === 3) notify([{ t: now(), level: "warning", code: "image-capture-failed", message: `The periodic camera picture failed 3 times in a row (${(e as Error).message}).` }]);
+        }
+      }
+    } finally { busy = false; }
+  }, images.intervalSeconds * 1000);
+  timer.unref();
+}
 
 control(
   "set_speed_profile",

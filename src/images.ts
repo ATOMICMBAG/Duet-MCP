@@ -7,18 +7,22 @@ import { join, resolve } from "node:path";
  * Default: ./duet-mcp-images in the working folder, the last 200 pictures. DUET_IMAGE_DIR=off switches it off, DUET_IMAGE_KEEP changes the number.
  * The folder gets its own .gitignore ("*") so the pictures can never be committed by accident. Nothing here uses the network.
  */
-export interface ImageSettings { dir: string | undefined; keep: number }
+export interface ImageSettings { dir: string | undefined; keep: number; autoKeep: number; intervalSeconds: number }
 
 export function imageSettings(env: Record<string, string | undefined>, cwd = process.cwd()): ImageSettings {
   const raw = (env.DUET_IMAGE_DIR ?? "").trim();
   const keep = Number(env.DUET_IMAGE_KEEP);
+  const autoKeep = Number(env.DUET_IMAGE_AUTO_KEEP);
+  const every = Number(env.DUET_IMAGE_INTERVAL_SECONDS);
   return {
     dir: /^(off|none|false|0)$/i.test(raw) ? undefined : resolve(cwd, raw || "duet-mcp-images"),
     keep: Number.isFinite(keep) && keep >= 1 ? Math.floor(keep) : 200,
+    autoKeep: Number.isFinite(autoKeep) && autoKeep >= 1 ? Math.floor(autoKeep) : 300,
+    intervalSeconds: Number.isFinite(every) && every > 0 ? Math.max(5, Math.floor(every)) : 0, // 0 = off; never faster than every 5 s
   };
 }
 
-const FILE = /^(\d{4})-(\d\d)-(\d\d)_(\d\d)-(\d\d)-(\d\d)_([A-Za-z0-9-]+?)(?:_L(\d+))?(?:-(\d+))?\.(jpg|png|gif|webp)$/;
+const FILE = /^(\d{4})-(\d\d)-(\d\d)_(\d\d)-(\d\d)-(\d\d)_([A-Za-z0-9-]+?)(?:_L(\d+))?(_auto)?(?:-(\d+))?\.(jpg|png|gif|webp)$/;
 const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp" };
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -26,32 +30,34 @@ const stamp = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
 export interface Archived { path: string; file: string; sha256: string; bytes: number; indexPath: string }
-export interface ArchiveInput { camera: string; data: Buffer; mimeType: string; layer?: number; notes?: Record<string, string> }
+export interface ArchiveInput { camera: string; data: Buffer; mimeType: string; layer?: number; notes?: Record<string, string>; auto?: boolean }
 
-interface Entry { file: string; time: string; camera: string; layer?: number }
+interface Entry { file: string; time: string; camera: string; layer?: number; auto: boolean }
 
 function entries(dir: string): Entry[] {
   return readdirSync(dir)
     .map((file) => ({ file, m: FILE.exec(file) }))
     .filter((x): x is { file: string; m: RegExpExecArray } => x.m !== null)
-    .map(({ file, m }) => ({ file, time: `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}`, camera: m[7], layer: m[8] ? Number(m[8]) : undefined }))
+    .map(({ file, m }) => ({ file, time: `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}`, camera: m[7], layer: m[8] ? Number(m[8]) : undefined, auto: m[9] === "_auto" }))
     .sort((a, b) => (a.file < b.file ? 1 : -1)); // newest first: the names start with the time
 }
 
-export function archiveImage(dir: string, keep: number, img: ArchiveInput, now = new Date()): Archived {
+/** `keep` pictures the assistant looked at and `autoKeep` periodic pictures are kept, each counted on its own so a long print cannot push out the analysed ones. */
+export function archiveImage(dir: string, keep: number, img: ArchiveInput, now = new Date(), autoKeep = 300): Archived {
   mkdirSync(dir, { recursive: true });
   const gi = join(dir, ".gitignore");
   if (!existsSync(gi)) writeFileSync(gi, "# camera pictures stay out of git\n*\n");
   const camera = img.camera.replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "camera";
   const ext = EXT[img.mimeType] ?? "jpg";
-  const base = `${stamp(now)}_${camera}${img.layer ? `_L${img.layer}` : ""}`;
+  const base = `${stamp(now)}_${camera}${img.layer ? `_L${img.layer}` : ""}${img.auto ? "_auto" : ""}`;
   let file = `${base}.${ext}`;
   for (let n = 2; existsSync(join(dir, file)); n++) file = `${base}-${n}.${ext}`;
   const path = join(dir, file);
   writeFileSync(path, img.data);
   copyFileSync(path, join(dir, `latest.${ext}`)); // a fixed name for editors that can show a picture and reload it
   // keep only the newest pictures; files that do not look like ours are never touched
-  for (const old of entries(dir).slice(keep)) { try { unlinkSync(join(dir, old.file)); } catch { /* already gone */ } }
+  const all = entries(dir);
+  for (const old of [...all.filter((e) => !e.auto).slice(keep), ...all.filter((e) => e.auto).slice(autoKeep)]) { try { unlinkSync(join(dir, old.file)); } catch { /* already gone */ } }
   const indexPath = writeIndex(dir, img.notes ?? {}, now);
   return { path, file, sha256: createHash("sha256").update(img.data).digest("hex"), bytes: img.data.length, indexPath };
 }
@@ -65,7 +71,7 @@ function dataUri(dir: string, file: string): string | undefined {
 
 export function writeIndex(dir: string, notes: Record<string, string>, now = new Date()): string {
   const all = entries(dir);
-  const caption = (e: Entry) => `${esc(e.time)} &middot; ${esc(e.camera)}${e.layer ? ` &middot; layer ${e.layer}` : ""}`;
+  const caption = (e: Entry) => `${esc(e.time)} &middot; ${esc(e.camera)}${e.layer ? ` &middot; layer ${e.layer}` : ""}${e.auto ? " &middot; auto" : ""}`;
   const cell = (e: Entry) => { const u = dataUri(dir, e.file); return `<figure>${u ? `<img src="${u}" alt="">` : ""}<figcaption>${caption(e)}</figcaption></figure>`; };
   const older = all.slice(EMBED + 1);
   const newest = all[0];

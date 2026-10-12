@@ -68,6 +68,14 @@ async function httpFrame(raw: string): Promise<Frame> {
   return { data: Buffer.from(await res.arrayBuffer()), mimeType: type.split(";")[0] || "image/jpeg" };
 }
 
+/** One grab at a time: a local webcam cannot be opened twice, and the periodic capture must not collide with a snapshot the assistant asks for. */
+let grabChain: Promise<unknown> = Promise.resolve();
+export function exclusive<T>(fn: () => Promise<T>): Promise<T> {
+  const run = grabChain.then(fn, fn);
+  grabChain = run.catch(() => undefined);
+  return run;
+}
+
 export function grabFrame(source: string): Promise<Frame> {
   if (source.startsWith("dshow:")) return ffmpegFrame(["-f", "dshow", "-i", `video=${source.slice(6)}`]);
   if (source.startsWith("rtsp://")) return ffmpegFrame(["-rtsp_transport", "tcp", "-i", source]);

@@ -132,3 +132,49 @@ describe("the snapshot tool archives what it hands to the assistant", () => {
     } finally { await new Promise<void>((r) => srv.close(() => r())); }
   }, 30000);
 });
+
+describe("periodic pictures", () => {
+  it("settings: off by default, never faster than every 5 s", () => {
+    expect(imageSettings({}).intervalSeconds).toBe(0);
+    expect(imageSettings({ DUET_IMAGE_INTERVAL_SECONDS: "60" }).intervalSeconds).toBe(60);
+    expect(imageSettings({ DUET_IMAGE_INTERVAL_SECONDS: "1" }).intervalSeconds).toBe(5);
+    expect(imageSettings({ DUET_IMAGE_INTERVAL_SECONDS: "x" }).intervalSeconds).toBe(0);
+    expect(imageSettings({}).autoKeep).toBe(300);
+    expect(imageSettings({ DUET_IMAGE_AUTO_KEEP: "10" }).autoKeep).toBe(10);
+  });
+
+  it("auto pictures are marked, and kept apart from the ones the assistant saw", () => {
+    const dir = tmp();
+    archiveImage(dir, 2, { camera: "bed", data: jpg(1), mimeType: "image/jpeg" }, at(0), 3); // analysed
+    for (let s = 1; s <= 6; s++) archiveImage(dir, 2, { camera: "bed", data: jpg(s), mimeType: "image/jpeg", auto: true, layer: 3 }, at(s), 3);
+    const files = pics(dir);
+    expect(files.filter((f) => f.includes("_auto"))).toHaveLength(3); // only the newest 3 periodic pictures
+    expect(files).toContain("2026-10-12_17-43-00_bed.jpg"); // the analysed one survives the periodic flood
+    expect(files).toContain("2026-10-12_17-43-06_bed_L3_auto.jpg");
+    expect(readFileSync(join(dir, "index.html"), "utf8")).toMatch(/layer 3 &middot; auto/);
+  });
+
+  it("takes pictures while a job is active and one more when it ends, none while idle, and links them in the audit log", async () => {
+    const JPEG = Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=", "base64");
+    const srv = createServer((_q, res) => res.writeHead(200, { "content-type": "image/jpeg" }).end(JPEG));
+    await new Promise<void>((r) => srv.listen(0, "127.0.0.1", r));
+    const url = `http://127.0.0.1:${(srv.address() as any).port}/s.jpg`;
+    const dir = join(tmp(), "pics");
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    try {
+      const { mock, auditFile } = await bootServer({ readOnly: true, initial: { status: "processing" }, env: { DUET_CAMERAS: `bed=${url}`, DUET_CAMERA_WIDTH: "0", DUET_IMAGE_DIR: dir, DUET_IMAGE_INTERVAL_SECONDS: "5" } });
+      await sleep(7000);
+      const during = pics(dir).filter((f) => f.includes("_auto")).length;
+      expect(during).toBeGreaterThanOrEqual(1);
+      mock.state.status = "idle";
+      await sleep(6000);
+      const after = pics(dir).filter((f) => f.includes("_auto")).length;
+      expect(after).toBe(during + 1); // one last picture of the finished part
+      await sleep(5500);
+      expect(pics(dir).filter((f) => f.includes("_auto")).length).toBe(after); // nothing while idle
+      const log = readFileSync(auditFile, "utf8");
+      expect(log.split("\n").filter((l) => l.includes('"camera-image"') && l.includes('"auto":true'))).toHaveLength(after);
+      expect(verifyAudit(log).ok).toBe(true);
+    } finally { await new Promise<void>((r) => srv.close(() => r())); }
+  }, 60000);
+});

@@ -11,6 +11,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/), versions follow 
 - `upload_file` with a bare file name (for example `cube.gcode`) now stores it in `0:/gcodes` (before, the Duet put it in the root directory and `start_job` did not find it). The answer shows the real path.
 
 ### Added
+- Periodic pictures while a job is active (`DUET_IMAGE_INTERVAL_SECONDS`, off by default, `DUET_IMAGE_AUTO_KEEP`): a timeline on the overview page without tokens; camera grabs are serialised.
 - Camera picture archive: every picture handed to the assistant is saved in `./duet-mcp-images` (last 200; `DUET_IMAGE_DIR`, `DUET_IMAGE_KEEP`), named by time, camera and layer, linked in the audit log with its SHA-256 (`camera-image`), with `latest.jpg` and a self-contained overview page `index.html` (the newest 13 pictures are embedded in the page, so it works in viewers that block neighbouring files). The folder ignores itself in git.
 - The start approval tells the user when a camera is configured but no picture of the bed was taken in the last 10 minutes.
 - The instructions tell the assistant to look at the bed before `start_job`, to ask before `resume_job`, and that it cannot watch the machine between its answers (no promises of background polling).
