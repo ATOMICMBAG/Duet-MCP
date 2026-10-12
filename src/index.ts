@@ -8,7 +8,8 @@ import { checkGcode } from "./guard.js";
 import { brightnessLabel, exclusive, formatLocalCameras, grabFrame, listDshowDevices, processFrame, sourceKind } from "./camera.js";
 import { remotePath } from "./paths.js";
 import { appendAudit } from "./audit.js";
-import { archiveImage, imageSettings } from "./images.js";
+import { archiveImage, discardFolder, imageSettings, isPictureFile, stamp } from "./images.js";
+import { startViewer } from "./viewer.js";
 import { mergeLive, parseConfig, redactSecrets, type MachineProfile } from "./profile.js";
 import { homeAxes, orderAxes } from "./homing.js";
 import { describeCompat, formatCompat } from "./compat.js";
@@ -16,8 +17,8 @@ import { INSTRUCTIONS, PROMPTS, sessionFacts } from "./prompts.js";
 import { makeConfirmer, parseConfirmMode, systemDialog, type ConfirmRequest } from "./confirm.js";
 import { SpeedGovernor, formatSpeedProfile, parseSpeedProfile, type SpeedStep } from "./speedprofile.js";
 import { cancelJob, resumeJob } from "./jobcontrol.js";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { basename } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import { analyzeGcode, applyFixes, formatReport } from "./preflight.js";
 import { HeatWatchdog } from "./watchdog.js";
 import { canAcknowledge, describeMessageBox, parseMessageBox } from "./messagebox.js";
@@ -34,7 +35,7 @@ const homedMap = async (): Promise<Record<string, boolean>> =>
 loadDotEnv();
 const cfg = loadConfig();
 const duet = new DuetClient(cfg.host, cfg.password);
-const server = new McpServer({ name: "duet-mcp", version: "0.1.0" }, { capabilities: { logging: {} }, instructions: INSTRUCTIONS + "\n\n" + sessionFacts({ cameras: Object.keys(cfg.cameras), readOnly: cfg.readOnly }) });
+const server = new McpServer({ name: "duet-mcp", version: "0.1.0" }, { capabilities: { logging: {} }, instructions: INSTRUCTIONS + "\n\n" + sessionFacts({ cameras: Object.keys(cfg.cameras), readOnly: cfg.readOnly, viewerUrl: imageSettings(process.env).viewerPort && imageSettings(process.env).dir ? `http://127.0.0.1:${imageSettings(process.env).viewerPort}/` : undefined }) });
 
 let profile: MachineProfile | undefined;
 async function getProfile(refresh = false): Promise<MachineProfile> {
@@ -134,6 +135,21 @@ const cameraNames = () => Object.keys(cfg.cameras);
 // Every picture handed to the assistant is archived (last 200, ./duet-mcp-images; DUET_IMAGE_DIR=off disables) and linked in the audit log.
 const images = imageSettings(process.env);
 let overviewShown = false;
+// The pictures of a print go into a folder of their own: next to the G-code file when this session uploaded it (so they stay with the model), otherwise below the default folder.
+const uploadedFrom = new Map<string, string>(); // remote base name (lower case) -> local path of the file the assistant uploaded
+interface JobPictures { name: string; dir: string; active: boolean }
+let jobPictures: JobPictures | undefined; // the running job, or the last one
+const safeName = (s: string) => s.replace(/\.[^.]+$/, "").replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "job";
+function trackJobPictures(s: Sample) {
+  if (!images.dir) return;
+  const active = ["processing", "paused", "pausing", "resuming"].includes(s.status);
+  if (active && !jobPictures?.active) {
+    const base = (s.fileName ?? "job").split("/").pop()!;
+    const local = uploadedFrom.get(base.toLowerCase());
+    jobPictures = { name: base, dir: join(local ? join(dirname(local), "duet-mcp-images") : images.dir, `${stamp(new Date())}_${safeName(base)}`), active: true };
+  } else if (!active && jobPictures?.active) jobPictures.active = false;
+}
+const pictureDir = () => (jobPictures?.active ? jobPictures.dir : images.dir); // where a snapshot goes right now
 // When did the assistant last look at the bed? The start approval tells the human if it never did (found in a test: the first picture was taken after the start).
 let lastSnapshotAt = 0;
 const cameraNote = () => {
@@ -171,8 +187,8 @@ readTool("get_camera_snapshot", {
       if (images.dir) {
         try {
           const layer = lastSample && lastSample.status !== "idle" ? lastSample.layer : undefined;
-          const a = archiveImage(images.dir, images.keep, { camera: name, data: f.data, mimeType: f.mimeType, layer, notes: cfg.cameraNotes }, new Date(), images.autoKeep);
-          audit({ tool: "camera-image", camera: name, file: a.file, sha256: a.sha256, bytes: a.bytes });
+          const a = archiveImage(pictureDir()!, images.keep, { camera: name, data: f.data, mimeType: f.mimeType, layer, notes: cfg.cameraNotes }, new Date(), images.autoKeep);
+          audit({ tool: "camera-image", camera: name, file: a.file, dir: dirname(a.path), sha256: a.sha256, bytes: a.bytes });
           saved = `. Saved: ${a.path}${overviewShown ? "" : `. Overview page with the latest pictures: ${a.indexPath}`}`;
           overviewShown = true;
         } catch (e) { saved = `. The picture could not be saved (${(e as Error).message})`; }
@@ -187,6 +203,28 @@ readTool("get_camera_snapshot", {
   if (ok > 0) lastSnapshotAt = Date.now();
   return { content, ...(ok === 0 ? { isError: true } : {}) };
 });
+
+server.registerTool(
+  "discard_job_images",
+  {
+    description: "Delete the camera pictures of the last print (the folder the server wrote them to). The default is to KEEP them: use this only when the user says they do not want them. The user is asked to approve first. Deletes only the server's own picture files in that folder, never anything else.",
+    inputSchema: {},
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+  },
+  async () => {
+    const dir = jobPictures?.dir;
+    if (!images.dir || !dir) return fail("This session has no print picture folder (pictures are off, or no print has been seen yet).");
+    if (jobPictures?.active) return fail("A job is still running. Wait until it has finished.");
+    const n = existsSync(dir) ? readdirSync(dir).filter(isPictureFile).length : 0;
+    if (n === 0) return text(`There are no pictures in ${dir}.`);
+    const a = await ask("duet-mcp: delete the pictures of the last print", `Delete ${n} camera pictures of the last print?\n\nFolder: ${dir}\n\nOnly the server's own picture files are deleted. They cannot be restored.`, false);
+    if (!a.approved) return fail(`Not approved (${a.via}): ${a.note}. The pictures are kept.`);
+    const r = discardFolder(dir);
+    audit({ tool: "discard_job_images", dir, ...r });
+    if (r.deleted === 0) return fail(`Nothing was deleted: ${dir} is not one of the server's job picture folders.`);
+    return text(`Deleted ${r.deleted} files from ${dir}${r.removedFolder ? " and removed the empty folder" : r.kept ? ` (${r.kept} other files stay there)` : ""}.`);
+  },
+);
 
 readTool("list_local_cameras", { description: "List video devices on the PC running this server (DirectShow, Windows). A phone used as webcam (DroidCam, Iriun, Camo, Phone Link) appears here; use its name as DUET_CAMERAS=\"name=dshow:<device name>\".", inputSchema: {} }, async () => text(formatLocalCameras(await listDshowDevices())));
 
@@ -302,6 +340,7 @@ control("upload_file", "Upload a local file to the SD card. Without remoteName t
   const remote = remotePath(remoteName, base);
   if (/^0:\/sys\//i.test(remote)) return fail("Uploads to 0:/sys are blocked.");
   await duet.upload(localPath, remote);
+  uploadedFrom.set(basename(remote).toLowerCase(), resolve(localPath));
   return text(`Uploaded to ${remote}`);
 });
 
@@ -378,6 +417,7 @@ async function superviseTick(): Promise<number> {
       } catch { /* boards not readable: get_machine_info will say so */ }
     }
     lastSample = s;
+    trackJobPictures(s);
     notify(conn.ok(s.t));
     const r = supervisor.evaluate(s);
     notify(r.events);
@@ -446,8 +486,8 @@ if (images.dir && images.intervalSeconds > 0 && cameraNames().length) {
       for (const name of cameraNames().slice(0, 2)) {
         try {
           const f = await processFrame(await exclusive(() => grabFrame(cfg.cameras[name])), cfg.cameraWidth ?? 960);
-          const a = archiveImage(images.dir!, images.keep, { camera: name, data: f.data, mimeType: f.mimeType, layer: active ? lastSample?.layer : undefined, notes: cfg.cameraNotes, auto: true }, new Date(), images.autoKeep);
-          audit({ tool: "camera-image", camera: name, file: a.file, sha256: a.sha256, bytes: a.bytes, auto: true });
+          const a = archiveImage(jobPictures?.dir ?? images.dir!, images.keep, { camera: name, data: f.data, mimeType: f.mimeType, layer: active ? lastSample?.layer : undefined, notes: cfg.cameraNotes, auto: true }, new Date(), images.autoKeep);
+          audit({ tool: "camera-image", camera: name, file: a.file, dir: dirname(a.path), sha256: a.sha256, bytes: a.bytes, auto: true });
           failures = 0;
         } catch (e) {
           if (++failures === 3) notify([{ t: now(), level: "warning", code: "image-capture-failed", message: `The periodic camera picture failed 3 times in a row (${(e as Error).message}).` }]);
@@ -517,9 +557,26 @@ const resource = (name: string, uri: string, title: string, description: string,
 resource("machine-profile", "duet://machine/profile", "Machine profile", "Axis limits, heater limits, motor currents and kinematics, from config.g and the live firmware values.", "application/json", async () => JSON.stringify(await getProfile(true), null, 2));
 resource("config-g", "duet://machine/config.g", "config.g", "The machine's config.g from the SD card, with passwords hidden.", "text/plain", async () => redactSecrets(await duet.download("0:/sys/config.g")));
 resource("server-settings", "duet://server/settings", "Server settings", "What is switched on and which limits and thresholds apply (read-only mode, confirmation mode, temperature limits, macros, cameras, supervisor, speed profile).", "application/json", () =>
-  JSON.stringify({ version: "0.1.0", readOnly: cfg.readOnly, confirmMode: parseConfirmMode(process.env.DUET_CONFIRM), maxTemp: cfg.maxTemp, allowedMacros: cfg.macros, cameras: Object.keys(cfg.cameras), supervisor: process.env.DUET_SUPERVISOR === "off" ? "off" : supCfg, idleHeaterMinutes: idleMinutes, speedProfile: formatSpeedProfile(governor.profile) }, null, 2));
+  JSON.stringify({ version: "0.1.0", readOnly: cfg.readOnly, confirmMode: parseConfirmMode(process.env.DUET_CONFIRM), maxTemp: cfg.maxTemp, allowedMacros: cfg.macros, cameras: Object.keys(cfg.cameras), pictures: { folder: images.dir ?? "off", keep: images.keep, intervalSeconds: images.intervalSeconds, viewerPort: images.viewerPort ?? "off" }, supervisor: process.env.DUET_SUPERVISOR === "off" ? "off" : supCfg, idleHeaterMinutes: idleMinutes, speedProfile: formatSpeedProfile(governor.profile) }, null, 2));
 resource("recent-events", "duet://events/recent", "Recent supervisor events", "The last 50 events the server noticed (job, temperature, connection, speed).", "text/plain", () =>
   recent.slice(-50).map((e) => `${new Date(e.t).toISOString()} [${e.level}] ${e.code}: ${e.message}`).join("\n") || "No events yet.");
+
+// Live picture viewer (DUET_VIEWER_PORT): the page reloads itself, so it also works in the preview pane, which shows plain local files only as a still.
+if (images.dir && images.viewerPort) {
+  const v = await startViewer({
+    port: images.viewerPort,
+    getDir: () => jobPictures?.dir ?? images.dir,
+    getNotes: () => cfg.cameraNotes ?? {},
+    getStatus: () => {
+      const s = lastSample;
+      if (!s) return "No machine data yet.";
+      const heat = s.heaters.map((h) => `${h.role} ${Math.round(h.current)}/${Math.round(h.target)} C`).join(", ");
+      const pct = s.fileSize ? ` ${((s.filePosition / s.fileSize) * 100).toFixed(0)} %` : "";
+      return `Machine: ${s.status}${s.fileName ? ` | ${s.fileName.split("/").pop()}` : ""}${s.layer ? ` | layer ${s.layer}` : ""}${s.status !== "idle" ? pct : ""} | ${heat}`;
+    },
+  });
+  if (v) console.error(`duet-mcp: picture viewer at ${v.url}`);
+}
 
 // Free the Duet's session when Claude closes the connection (the Duet 2 only has a few sessions).
 const shutdown = () => duet.disconnect().finally(() => process.exit(0));

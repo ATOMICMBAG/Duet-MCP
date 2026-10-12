@@ -53,6 +53,16 @@ Every picture that `get_camera_snapshot` hands to the assistant is also **saved*
 - The folder has its own `.gitignore` (`*`), so the pictures cannot be committed by accident.
 - Switch it off with `DUET_IMAGE_DIR=off`, or choose another folder with `DUET_IMAGE_DIR=<path>`.
 
+### One folder per print
+
+While a job runs, its pictures go into a folder of their own, named after the time and the job: `2026-10-12_19-11-40_CFFFP-cube-tower-M600-test/`. If the assistant uploaded the G-code from a folder on your PC (`upload_file`), that folder is **next to the model**: `<model folder>/duet-mcp-images/<time>_<job>/`, so the pictures stay with the model. If the server does not know the local file (the job was started from DWC or the file was uploaded earlier), the job folder is created below the default folder. Pictures taken while no job runs (for example the bed check) go into the default folder (`./duet-mcp-images`). Each job folder has its own `index.html`, `latest.jpg` and limits.
+
+The assistant tells you where the pictures of a print are and asks whether you want to keep them (keeping is the default). If you do not, it can call `discard_job_images`: you are asked to approve, and only the server's own picture files in the last job folder are deleted (never anything else, and never a folder that does not look like a job folder).
+
+### Live viewer
+
+The overview page is a file, and the preview pane of the desktop app shows a local file only as a still. For a page that updates itself set `DUET_VIEWER_PORT=8765` (off by default). The server then serves the page on `http://127.0.0.1:8765/` while it runs: it reloads every 5 seconds, shows the newest picture, the next pictures and a line about the machine (state, job, layer, progress, temperatures). Open it in any browser or in the preview pane. It listens on the loopback address only, answers GET for the page and for the picture files and nothing else, and refuses requests whose Host header is not the local address (so a web page on the internet cannot read your pictures). If the port is taken the server continues without the viewer. The viewer lives as long as the MCP server, that is as long as your client session.
+
 ### Periodic pictures (timeline)
 
 Set `DUET_IMAGE_INTERVAL_SECONDS=30` (at least 5, off by default) and the server also takes a picture every 30 seconds **while a job is active** (printing, paused, resuming) plus one last picture when the job ends. These pictures are marked `_auto` in the file name and "auto" on the overview page, so the page becomes a timeline you can watch while you work, **without the assistant being asked anything and without tokens**. The assistant can look at the recent pictures when you ask (they are files in the folder). Details:

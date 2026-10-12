@@ -163,15 +163,16 @@ describe("periodic pictures", () => {
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     try {
       const { mock, auditFile } = await bootServer({ readOnly: true, initial: { status: "processing" }, env: { DUET_CAMERAS: `bed=${url}`, DUET_CAMERA_WIDTH: "0", DUET_IMAGE_DIR: dir, DUET_IMAGE_INTERVAL_SECONDS: "5" } });
+      const autos = () => (readdirSync(dir, { recursive: true }) as string[]).filter((f) => f.endsWith(".jpg") && f.includes("_auto")).length; // the pictures of a job are in a folder of their own
       await sleep(7000);
-      const during = pics(dir).filter((f) => f.includes("_auto")).length;
+      const during = autos();
       expect(during).toBeGreaterThanOrEqual(1);
       mock.state.status = "idle";
       await sleep(6000);
-      const after = pics(dir).filter((f) => f.includes("_auto")).length;
+      const after = autos();
       expect(after).toBe(during + 1); // one last picture of the finished part
       await sleep(5500);
-      expect(pics(dir).filter((f) => f.includes("_auto")).length).toBe(after); // nothing while idle
+      expect(autos()).toBe(after); // nothing while idle
       const log = readFileSync(auditFile, "utf8");
       expect(log.split("\n").filter((l) => l.includes('"camera-image"') && l.includes('"auto":true'))).toHaveLength(after);
       expect(verifyAudit(log).ok).toBe(true);

@@ -12,16 +12,18 @@ export const INSTRUCTIONS = [
   "The server asks the human itself for approval (start_job, home_axes, heating, risky G-code). You cannot approve for them and the confirm argument is ignored. If a request is declined or cannot be asked, report it and stop; do not try to work around it.",
   "Before start_job, if a camera is configured: get_camera_snapshot and say whether the bed is empty and clean. The approval dialog tells the user if you did not look.",
   "You cannot watch the machine between your answers: you act only when you call tools or the user writes to you. Never promise to keep polling or to tell the user later. Say so plainly, check job_status (and the camera when useful) every time you answer, and ask the user to write to you when something happens (a layer change, a filament change) or to use a loop or schedule feature of their client. The server's supervisor keeps watching on its own and acts (pause, heaters off), but it cannot message the user.",
+  "The pictures you look at are saved (the answer names the folder; pictures of a print go into a folder of their own, next to the G-code file when you uploaded it). After a print, tell the user where they are and ask whether to keep them; keeping is the default. Only if the user says they do not want them, call discard_job_images.",
   "Keep answers short. Use get_camera_snapshot at layer changes (list_cameras says what each view is for; several views can be fetched in one call). The server supervises temperatures and progress on its own; if job_status shows events such as heatup-timeout, temperature-deviation, over-temperature, no-progress, long-pause-hot, duet-restarted or connection-lost, tell the user at once and do not resume without their consent.",
   "If the machine shows a message (job_status shows it; a filament change after M600 asks for OK), tell the user what it says and wait: acknowledge_message answers it only after the user did what it asks and approved. Ask the user before resume_job, also after a filament change. emergency_stop is always available. pause_job and cancel_job never need approval. A cancelled job leaves the heaters on: switch them off with send_gcode (M104 T0 S0, M140 S0) when the user wants that.",
   "Without DUET_READ_ONLY=false only the read tools exist. Config, firmware and limit changes are never possible through this server; the user does them in config.g.",
 ].join("\n");
 
 /** Facts about this session that the server knows at start (added to the instructions). */
-export function sessionFacts(o: { cameras: string[]; readOnly: boolean }): string {
+export function sessionFacts(o: { cameras: string[]; readOnly: boolean; viewerUrl?: string }): string {
   return [
     `This session: ${o.readOnly ? "read-only (no control tools; the user must set DUET_READ_ONLY=false for homing, printing and G-code)" : "control tools enabled (risky steps need the user's approval)"}.`,
     `Cameras: ${o.cameras.length ? o.cameras.join(", ") : "none configured - tell the user, ask whether a camera is available, and do not claim the bed was checked"}.`,
+    ...(o.viewerUrl ? [`Live picture viewer: ${o.viewerUrl} (tell the user once that it exists; it shows the newest picture and the machine state and reloads itself).`] : []),
   ].join("\n");
 }
 
