@@ -43,6 +43,25 @@ DUET_CAMERA_WIDTH=960
 - A camera is **not a safety device.** It does not replace the firmware protections, a smoke detector or your own supervision (see [SAFETY.md](../SAFETY.md)).
 - The AI describes what is visible and can be wrong. "Looks fine" proves nothing. The server itself does not analyse pictures or act on them. The AI may pause a job when something looks wrong (the safe direction); its instructions forbid resuming, heating or moving because of a picture alone, and every risky step still needs your approval.
 
+## Saved pictures and the overview page
+
+Every picture that `get_camera_snapshot` hands to the assistant is also **saved** in the folder `duet-mcp-images` in the working folder of the server (the folder where you started your client), as `2026-10-12_17-43-07_bed_L4.jpg` (time, camera, layer while a job runs). Why: so you can see what the assistant looked at, and so the audit log can name the exact picture: each save is a line `camera-image` with the file name and the SHA-256 of the picture (the log is hash-chained, see [SAFETY_RULES.md](../SAFETY_RULES.md) rule 15).
+
+- The newest **200** pictures are kept, older ones are deleted (`DUET_IMAGE_KEEP`). Files in the folder that do not follow the naming scheme are never touched.
+- `latest.jpg` always holds the newest picture, and `index.html` is a **static overview page**: the latest picture large, the others below with time, camera and layer, refreshed every 10 seconds. It uses local files only, no network.
+- The folder has its own `.gitignore` (`*`), so the pictures cannot be committed by accident.
+- Switch it off with `DUET_IMAGE_DIR=off`, or choose another folder with `DUET_IMAGE_DIR=<path>`.
+
+How to look at it:
+
+| Where you work | What you see |
+|---|---|
+| Claude Code desktop app | The picture appears in the chat. The path in the answer is clickable and opens in the Browser pane, and so does `index.html`. |
+| VS Code, Claude CLI in the terminal | Probably only text and the path (the documentation does not mention images from tools in the terminal; not verified). Ctrl+click on the path opens the picture in an editor tab. Open `index.html` in a browser, or with the VS Code Simple Browser / Live Preview extensions. |
+| VS Code extension | Not verified whether pictures from tools appear in its chat; the saved files work the same way. |
+
+Claude Code also keeps the original bytes of tool pictures under `~/.claude/projects/<project>/<session>/tool-results` (v2.1.283 and later); that is separate from this archive.
+
 ## Privacy
 
-Pictures stay on your machine: the server fetches them from your cameras, passes them to your AI client and does not store or log them. What happens to them after that depends on your AI client and provider, so do not point a camera at people or private documents. Do not post pictures publicly without checking what is in the background.
+The server fetches the pictures from your cameras and passes them to your AI client. It **saves them on your disk** in the folder above (last 200, switch off with `DUET_IMAGE_DIR=off`) and never sends them anywhere else; what the AI client and provider do with a picture is up to them. Pictures can show your room and people, so do not point a camera at people or private documents, delete the folder when you no longer need it, and do not post pictures publicly without checking the background.

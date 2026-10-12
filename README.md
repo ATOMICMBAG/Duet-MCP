@@ -25,7 +25,7 @@ Phone / PC ──► Claude ──► duet-mcp (local, stdio) ──► Duet (HT
 - **Pre-flight check** of G-code files, with optional fixes in a patched copy.
 - **Supervisor:** pauses on heat-up timeout, temperature deviation, no progress, board restart or lost connection. Heaters left on are switched off by an idle watchdog.
 - **Speed profile per layer** (for example 30 % on layer 1, 50 % on layer 2).
-- **Camera snapshots** from HTTP cameras, RTSP or a local webcam (via ffmpeg), several views at once, each with a note (side view, spool close-up ...) and a brightness check. See [docs/CAMERAS.md](docs/CAMERAS.md) for the recommended views and mounting.
+- **Camera snapshots** from HTTP cameras, RTSP or a local webcam (via ffmpeg), several views at once, each with a note (side view, spool close-up ...) and a brightness check. Every picture is also saved (last 200) with a static overview page, see [docs/CAMERAS.md](docs/CAMERAS.md) for that and for the recommended views and mounting.
 - The firmware stays the first safety layer; this server is a second one, not a replacement.
 
 ![pic](Duet_MCP_Claude_chat.jpg)
@@ -71,6 +71,7 @@ Then ask: "Show me the machine info and job status." The server sends the safe w
 | `DUET_AUDIT_KEY` | Secret for the audit log checksums (HMAC); without it a plain checksum chain is used | none |
 | `DUET_AUDIT_LOG`                          | Path of the audit log                                                                 | `duet-mcp-audit.log` |
 | `DUET_CAMERA_NOTES`, `DUET_CAMERA_WIDTH` | What each camera is for (`name=text;...`); picture width in pixels, 0 = original | none / 960 |
+| `DUET_IMAGE_DIR`, `DUET_IMAGE_KEEP` | Folder for the archive of camera pictures handed to the assistant (`off` disables), and how many to keep | `./duet-mcp-images`, 200 |
 | `FFMPEG_PATH`                             | Path to `ffmpeg` (RTSP and local webcam)                                              | `ffmpeg` in PATH     |
 
 More settings (supervisor thresholds, confirmation mode, speed profile) are listed with comments in [.env.example](.env.example).

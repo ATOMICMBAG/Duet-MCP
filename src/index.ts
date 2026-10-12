@@ -8,6 +8,7 @@ import { checkGcode } from "./guard.js";
 import { brightnessLabel, formatLocalCameras, grabFrame, listDshowDevices, processFrame, sourceKind } from "./camera.js";
 import { remotePath } from "./paths.js";
 import { appendAudit } from "./audit.js";
+import { archiveImage, imageSettings } from "./images.js";
 import { mergeLive, parseConfig, redactSecrets, type MachineProfile } from "./profile.js";
 import { homeAxes, orderAxes } from "./homing.js";
 import { describeCompat, formatCompat } from "./compat.js";
@@ -130,6 +131,9 @@ readTool("get_endstops", { description: "Current endstop states (triggered or no
 });
 
 const cameraNames = () => Object.keys(cfg.cameras);
+// Every picture handed to the assistant is archived (last 200, ./duet-mcp-images; DUET_IMAGE_DIR=off disables) and linked in the audit log.
+const images = imageSettings(process.env);
+let overviewShown = false;
 // When did the assistant last look at the bed? The start approval tells the human if it never did (found in a test: the first picture was taken after the start).
 let lastSnapshotAt = 0;
 const cameraNote = () => {
@@ -163,7 +167,17 @@ readTool("get_camera_snapshot", {
     try {
       const f = await processFrame(await grabFrame(cfg.cameras[name]), cfg.cameraWidth ?? 960);
       const light = f.brightness === undefined ? (f.note ?? "brightness unknown") : `brightness ${brightnessLabel(f.brightness)} (${f.brightness}/255)`;
-      content.push({ type: "text", text: `${cameraLabel(name)} - ${light}${f.brightness !== undefined && brightnessLabel(f.brightness) === "dark" ? ". Too dark to judge: say so instead of guessing" : ""}` });
+      let saved = "";
+      if (images.dir) {
+        try {
+          const layer = lastSample && lastSample.status !== "idle" ? lastSample.layer : undefined;
+          const a = archiveImage(images.dir, images.keep, { camera: name, data: f.data, mimeType: f.mimeType, layer, notes: cfg.cameraNotes });
+          audit({ tool: "camera-image", camera: name, file: a.file, sha256: a.sha256, bytes: a.bytes });
+          saved = `. Saved: ${a.path}${overviewShown ? "" : `. Overview page with the latest pictures: ${a.indexPath}`}`;
+          overviewShown = true;
+        } catch (e) { saved = `. The picture could not be saved (${(e as Error).message})`; }
+      }
+      content.push({ type: "text", text: `${cameraLabel(name)} - ${light}${f.brightness !== undefined && brightnessLabel(f.brightness) === "dark" ? ". Too dark to judge: say so instead of guessing" : ""}${saved}` });
       content.push({ type: "image", data: f.data.toString("base64"), mimeType: f.mimeType });
       ok++;
     } catch (e) {

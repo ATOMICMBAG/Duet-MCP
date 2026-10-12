@@ -31,7 +31,7 @@ export async function bootServer(o: BootOptions) {
       ...(process.env as Record<string, string>),
       DUET_HOST: mock.host, DUET_PASSWORD: "", DUET_READ_ONLY: String(o.readOnly),
       DUET_POLL_SECONDS: "0.2", DUET_TEMP_DEV_SECONDS: "0.6", DUET_AUDIT_LOG: auditFile,
-      DUET_CAMERAS: "", DUET_CAMERA_URL: "",
+      DUET_CAMERAS: "", DUET_CAMERA_URL: "", DUET_IMAGE_DIR: "off", // tests must not write pictures into the project folder
       DUET_CONFIRM_DIALOG: "never", // tests must never pop up a real dialog on the developer's screen
       ...o.env,
     },

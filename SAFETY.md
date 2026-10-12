@@ -60,7 +60,7 @@ Before you use the server with control enabled, check yourself:
 6. Do not leave **any heater on unattended**. The idle watchdog is a safety net, not a replacement.
 7. Keep the **DWC password** in `.env` (never in the repository, never in the chat) and set one on the Duet.
 8. **Local network only.** No port forwarding to the Duet, no open MCP server.
-9. Do not share **logs** unchecked: the audit log and reports can contain IP addresses and file names. Likewise **camera pictures**: they can show your room and people. The server does not store them.
+9. Do not share **logs** unchecked: the audit log and reports can contain IP addresses and file names. Likewise **camera pictures**: they can show your room and people. The server saves the pictures it hands to the assistant in `duet-mcp-images` (last 200, off with `DUET_IMAGE_DIR=off`); delete the folder when you no longer need it.
 10. **After a restart of the Duet** (power loss, reset) heaters are off and axes are not homed. If you want to continue a print with `resurrect.g`, the printed part must not have changed in the meantime, only the head position may. (This is not automated yet.)
 
 ## Reporting security problems
@@ -117,7 +117,7 @@ Bevor du den Server mit Steuerung benutzt, prüfe selbst:
 6. Lass **keine Heizung unbeaufsichtigt** an. Der Leerlauf-Wächter (`DUET_HEAT_IDLE_MINUTES`) ist ein Netz, kein Ersatz.
 7. Das **DWC-Passwort** gehört in `.env` (nie ins Repository, nie in den Chat). Setze eines auf der Duet.
 8. Nur im **lokalen Netz**. Kein Portforwarding zur Duet, kein offener MCP-Server.
-9. Teile **keine Logs** ungeprüft: Audit-Log und Berichte können IP-Adressen und Dateinamen enthalten. Ebenso **Kamerabilder**: Sie können dein Zimmer und Personen zeigen. Der Server speichert sie nicht.
+9. Teile **keine Logs** ungeprüft: Audit-Log und Berichte können IP-Adressen und Dateinamen enthalten. Ebenso **Kamerabilder**: Sie können dein Zimmer und Personen zeigen. Der Server speichert die Bilder, die er dem Assistenten gibt, in `duet-mcp-images` (die letzten 200, abschaltbar mit `DUET_IMAGE_DIR=off`); lösche den Ordner, wenn du ihn nicht mehr brauchst.
 10. **Nach einem Neustart der Duet** (Stromausfall, Reset) sind die Heizungen aus und die Achsen nicht referenziert. Wer einen Druck mit `resurrect.g` fortsetzen will: Das Druckteil darf sich inzwischen nicht verändert haben, nur die Kopfposition darf es. (Das ist noch nicht automatisiert.)
 
 ## Sicherheitslücken melden

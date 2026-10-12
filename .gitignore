@@ -11,3 +11,5 @@ frames*/
 # third-party reference pictures (Duet3D docs), for local use only
 docs/duet*.png
 docs/reference/
+# camera picture archive of the server (also has its own .gitignore)
+duet-mcp-images/
