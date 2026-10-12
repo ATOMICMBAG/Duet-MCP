@@ -74,6 +74,24 @@ export function grabFrame(source: string): Promise<Frame> {
   return httpFrame(source);
 }
 
+/** Device names out of the ffmpeg listing: `[dshow @ ...] "Integrated Camera" (video)`. */
+export function parseDshowDevices(listing: string): string[] {
+  return [...listing.matchAll(/"([^"]+)"\s+\(video\)/g)].map((m) => m[1]);
+}
+
+/** The answer of list_local_cameras: the devices and the exact setting to add, because the user has to put it into .env. */
+export function formatLocalCameras(listing: string): string {
+  const names = parseDshowDevices(listing);
+  if (!names.length) return `No video device found on this PC (DirectShow, Windows only). Network cameras need no device: use an http(s):// snapshot or an rtsp:// address in DUET_CAMERAS.\n${listing.trim().slice(0, 300)}`;
+  const entries = names.map((n, i) => `${i === 0 ? "cam" : `cam${i + 1}`}=dshow:${n}`);
+  return [
+    `Video devices on this PC:\n${names.map((n) => `- ${n}`).join("\n")}`,
+    `To use ${names.length > 1 ? "them" : "it"}, ask the user to add this to the .env file next to the server (or to the MCP registration) and restart the server:`,
+    `DUET_CAMERAS="${entries.join(",")}"`,
+    `Optional: DUET_CAMERA_NOTES="cam=Overview of the machine" tells the assistant what each view is for. Rename "cam" as you like.`,
+  ].join("\n");
+}
+
 /** Lists Windows DirectShow video devices (ffmpeg prints them to stderr). */
 export function listDshowDevices(): Promise<string> {
   return new Promise((resolve) => {

@@ -4,7 +4,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/), versions follow 
 
 ## [Unreleased]
 
+### Fixed
+- `upload_file` with a bare file name (for example `cube.gcode`) now stores it in `0:/gcodes` (before, the Duet put it in the root directory and `start_job` did not find it). The answer shows the real path.
+
 ### Added
+- The instructions the server sends at the start now say which cameras are configured and tell the assistant to ask about camera, bed probe, nozzle and material before the first print.
+- `list_local_cameras` shows the devices with the exact `DUET_CAMERAS` line to add; the pre-print prompt asks about a bed probe and offers automatic leveling (`G29`, with approval).
 - Message box of the machine (`M291`, filament change after `M600`): shown in `job_status` and as supervisor event (`message-box`, `filament-change`), answered by `acknowledge_message` after the user approved; `M292` needs approval in `send_gcode` too.
 - Supervisor warns when a pause with a hot nozzle lasts too long (`long-pause-hot`, `DUET_PAUSE_HOT_MINUTES`).
 - Prompt `filament_change_assistant`: the filament change in clear steps (who does what).

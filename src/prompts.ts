@@ -8,11 +8,20 @@ export const INSTRUCTIONS = [
   "",
   "Start every session with get_machine_info (board, firmware, how far it is verified) and job_status (state, heaters, supervisor events).",
   "Before a print: preflight_gcode on the local file (read-only; optional patched copy), then upload_file, home_axes if axes are not homed, then start_job.",
+  "Before the first print of a session ask the user briefly, and do not guess: is a camera available (list_cameras; if none is configured, list_local_cameras shows the PC's video devices and the exact setting for the user to add), is there a bed probe (get_sensors; if yes, offer automatic bed leveling with G29, which needs approval, and ask whether the start G-code already loads a mesh), which nozzle and which material.",
   "The server asks the human itself for approval (start_job, home_axes, heating, risky G-code). You cannot approve for them and the confirm argument is ignored. If a request is declined or cannot be asked, report it and stop; do not try to work around it.",
   "Keep answers short. While a job runs, poll job_status every few minutes (not in a tight loop) and use get_camera_snapshot at layer changes (list_cameras says what each view is for; several views can be fetched in one call). The server supervises temperatures and progress on its own; if job_status shows events such as heatup-timeout, temperature-deviation, over-temperature, no-progress, long-pause-hot, duet-restarted or connection-lost, tell the user at once and do not resume without their consent.",
   "If the machine shows a message (job_status shows it; a filament change after M600 asks for OK), tell the user what it says and wait: acknowledge_message answers it only after the user did what it asks and approved. emergency_stop is always available. pause_job and cancel_job never need approval. A cancelled job leaves the heaters on: switch them off with send_gcode (M104 T0 S0, M140 S0) when the user wants that.",
   "Without DUET_READ_ONLY=false only the read tools exist. Config, firmware and limit changes are never possible through this server; the user does them in config.g.",
 ].join("\n");
+
+/** Facts about this session that the server knows at start (added to the instructions). */
+export function sessionFacts(o: { cameras: string[]; readOnly: boolean }): string {
+  return [
+    `This session: ${o.readOnly ? "read-only (no control tools; the user must set DUET_READ_ONLY=false for homing, printing and G-code)" : "control tools enabled (risky steps need the user's approval)"}.`,
+    `Cameras: ${o.cameras.length ? o.cameras.join(", ") : "none configured - tell the user, ask whether a camera is available, and do not claim the bed was checked"}.`,
+  ].join("\n");
+}
 
 export interface PromptDef {
   name: string;
@@ -38,8 +47,8 @@ export const PROMPTS: PromptDef[] = [
       "1. get_machine_info: board, firmware, verification status.",
       "2. job_status: the machine must be idle; note heaters and any supervisor events.",
       `3. preflight_gcode with that file${a.nozzle ? ` and nozzle=${a.nozzle}` : " (ask for the nozzle diameter if you do not know it)"}. If it warns about tool selection or G28 in the start block, offer the fixes select-tool and strip-g28 (it writes a patched copy, the original stays untouched).`,
-      "4. get_machine_profile if limits matter for the print area. get_sensors if a filament monitor or probe is expected.",
-      "5. If a camera is configured: get_camera_snapshot and say whether the bed looks empty and clean. If the picture is too dark, say so instead of guessing.",
+      "4. get_machine_profile if limits matter for the print area. get_sensors: if a bed probe is present, ask whether to run automatic bed leveling (G29; the user is asked to approve) before the start and whether the start G-code loads a mesh; if there is none, leveling is manual (prompt bed_leveling_assistant). A filament monitor shows up there too.",
+      "5. list_cameras: if a camera is configured, get_camera_snapshot and say whether the bed looks empty and clean; if the picture is too dark, say so instead of guessing. If none is configured, tell the user and ask whether one is available (list_local_cameras shows the PC's devices and the setting to add); without a camera say plainly that the bed could not be checked.",
       "6. Summarise as GO or NO-GO with the reasons in a short list. Only report what the checks found; do not promise the print will succeed.",
     ].join("\n"),
   },

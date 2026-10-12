@@ -2,6 +2,8 @@
 
 Question: does a Claude that knows nothing about this project find the safe workflow from the server instructions, the tool descriptions and the prompts alone? That is what every new user gets. Run this test once on real hardware, in a **new empty folder** (no `CLAUDE.md`, no memory, no earlier chat).
 
+**Keep the test blind.** Do not paste this guide, the checklist or earlier instructions into the chat of the assistant you test, and do not let it read this file: then it follows the list instead of finding the way itself. Open the folder in a plain terminal, say only the sentences given below, and keep the checklist for yourself. Do not let the assistant write into `duet-mcp-audit.log`; that file is written by the server only (an entry added by hand or by an assistant is not evidence).
+
 ## Preparation (once)
 
 1. `npm install` and `npm run build` in the project, `.env` with `DUET_HOST` and `DUET_PASSWORD` (the server reads the `.env` next to `dist/`, so it also works from another folder).

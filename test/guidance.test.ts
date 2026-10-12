@@ -23,7 +23,9 @@ describe("what a fresh client sees (simulated Duet)", () => {
   it("gets instructions that name the safe workflow", async () => {
     const { client } = await bootServer({ readOnly: false });
     const i = client.getInstructions() ?? "";
-    expect(i).toBe(INSTRUCTIONS);
+    expect(i.startsWith(INSTRUCTIONS)).toBe(true);
+    expect(i).toMatch(/Cameras: none configured/);
+    expect(i).toMatch(/This session: control tools enabled/);
     for (const w of ["get_machine_info", "job_status", "preflight_gcode", "start_job", "approval", "emergency_stop"]) expect(i).toContain(w);
   }, 25000);
 

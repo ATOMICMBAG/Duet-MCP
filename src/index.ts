@@ -5,11 +5,12 @@ import { z } from "zod";
 import { loadConfig, loadDotEnv } from "./config.js";
 import { DuetClient } from "./duet.js";
 import { checkGcode } from "./guard.js";
-import { brightnessLabel, grabFrame, listDshowDevices, processFrame, sourceKind } from "./camera.js";
+import { brightnessLabel, formatLocalCameras, grabFrame, listDshowDevices, processFrame, sourceKind } from "./camera.js";
+import { remotePath } from "./paths.js";
 import { mergeLive, parseConfig, redactSecrets, type MachineProfile } from "./profile.js";
 import { homeAxes, orderAxes } from "./homing.js";
 import { describeCompat, formatCompat } from "./compat.js";
-import { INSTRUCTIONS, PROMPTS } from "./prompts.js";
+import { INSTRUCTIONS, PROMPTS, sessionFacts } from "./prompts.js";
 import { makeConfirmer, parseConfirmMode, systemDialog, type ConfirmRequest } from "./confirm.js";
 import { SpeedGovernor, formatSpeedProfile, parseSpeedProfile, type SpeedStep } from "./speedprofile.js";
 import { cancelJob, resumeJob } from "./jobcontrol.js";
@@ -31,7 +32,7 @@ const homedMap = async (): Promise<Record<string, boolean>> =>
 loadDotEnv();
 const cfg = loadConfig();
 const duet = new DuetClient(cfg.host, cfg.password);
-const server = new McpServer({ name: "duet-mcp", version: "0.1.0" }, { capabilities: { logging: {} }, instructions: INSTRUCTIONS });
+const server = new McpServer({ name: "duet-mcp", version: "0.1.0" }, { capabilities: { logging: {} }, instructions: INSTRUCTIONS + "\n\n" + sessionFacts({ cameras: Object.keys(cfg.cameras), readOnly: cfg.readOnly }) });
 
 let profile: MachineProfile | undefined;
 async function getProfile(refresh = false): Promise<MachineProfile> {
@@ -160,7 +161,7 @@ readTool("get_camera_snapshot", {
   return { content, ...(ok === 0 ? { isError: true } : {}) };
 });
 
-readTool("list_local_cameras", { description: "List video devices on the PC running this server (DirectShow, Windows). A phone used as webcam (DroidCam, Iriun, Camo, Phone Link) appears here; use its name as DUET_CAMERAS=\"name=dshow:<device name>\".", inputSchema: {} }, async () => text(await listDshowDevices()));
+readTool("list_local_cameras", { description: "List video devices on the PC running this server (DirectShow, Windows). A phone used as webcam (DroidCam, Iriun, Camo, Phone Link) appears here; use its name as DUET_CAMERAS=\"name=dshow:<device name>\".", inputSchema: {} }, async () => text(formatLocalCameras(await listDshowDevices())));
 
 localTool("preflight_gcode",
   {
@@ -268,9 +269,9 @@ control("start_job", `Start a G-code file from 0:/gcodes. Heats and moves the ma
     return fail((e as Error).message);
   }
 });
-control("upload_file", "Upload a local file to the SD card (default dir 0:/gcodes).", { localPath: z.string(), remoteName: z.string().regex(/^[\w\-. /:]+$/).optional() }, async ({ localPath, remoteName }) => {
+control("upload_file", "Upload a local file to the SD card. Without remoteName the file goes to 0:/gcodes under its own name; a bare name such as \"cube.gcode\" also goes to 0:/gcodes; for another folder give the full path (0:/macros/x.g). The answer shows where it was stored.", { localPath: z.string(), remoteName: z.string().regex(/^[\w\-. /:]+$/).optional() }, async ({ localPath, remoteName }) => {
   const base = localPath.split(/[\\/]/).pop()!;
-  const remote = remoteName ?? `0:/gcodes/${base}`;
+  const remote = remotePath(remoteName, base);
   if (/^0:\/sys\//i.test(remote)) return fail("Uploads to 0:/sys are blocked.");
   await duet.upload(localPath, remote);
   return text(`Uploaded to ${remote}`);
