@@ -202,3 +202,36 @@ describe("supervisorConfigFromEnv", () => {
     expect(c.maxTool).toBe(250);
   });
 });
+
+describe("long pause with a hot nozzle", () => {
+  const MIN = 60 * S;
+  const paused = (t: number, nozzle: number, target = 220) => sample(t, "paused", [bed(55), tool(nozzle, target)], 100);
+
+  it("warns after 5 minutes, escalates after 15, and does not repeat in between", () => {
+    const sv = new JobSupervisor();
+    sv.evaluate(sample(0, "processing", [bed(55), tool(220)], 50));
+    expect(codes(sv.evaluate(paused(10 * S, 220)))).toContain("job-paused");
+    expect(codes(sv.evaluate(paused(2 * MIN, 219)))).toEqual([]);
+    const w = sv.evaluate(paused(5 * MIN + 10 * S, 219));
+    expect(w.events.map((e) => [e.code, e.level])).toEqual([["long-pause-hot", "warning"]]);
+    expect(w.actions).toEqual([]); // reports only: the human decides
+    expect(codes(sv.evaluate(paused(8 * MIN, 219)))).toEqual([]);
+    expect(sv.evaluate(paused(15 * MIN + 20 * S, 219)).events.map((e) => [e.code, e.level])).toEqual([["long-pause-hot", "error"]]);
+  });
+
+  it("stays quiet when the nozzle is cold or the job resumes, and starts counting again for the next pause", () => {
+    const sv = new JobSupervisor();
+    sv.evaluate(sample(0, "processing", [bed(55), tool(220)], 50));
+    expect(codes(sv.evaluate(paused(10 * MIN, 90, 0)))).not.toContain("long-pause-hot"); // heater off
+    sv.evaluate(sample(11 * MIN, "processing", [bed(55), tool(220)], 60));
+    expect(codes(sv.evaluate(paused(12 * MIN, 220)))).not.toContain("long-pause-hot");
+    expect(codes(sv.evaluate(paused(18 * MIN, 220)))).toContain("long-pause-hot");
+  });
+
+  it("can be switched off or tuned", () => {
+    expect(supervisorConfigFromEnv({ DUET_PAUSE_HOT_MINUTES: "2" }, { bed: 100, tool: 250 }).pauseHotMinutes).toBe(2);
+    const off = new JobSupervisor({ ...DEFAULT_SUPERVISOR, pauseHotMinutes: 0 });
+    off.evaluate(sample(0, "processing", [bed(55), tool(220)], 50));
+    expect(codes(off.evaluate(paused(60 * MIN, 220)))).not.toContain("long-pause-hot");
+  });
+});

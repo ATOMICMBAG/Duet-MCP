@@ -30,13 +30,17 @@ G1 E40 F300                           ; purge the new filament
 - Put `M600` in the G-code file (the Duet documentation recommends `M226`/`M600` inside the printed file; `M25` is for other sources). Slicers can insert it at a layer.
 - Test with a short print and stay next to the machine. The author's test: a 10 minute tower, `M600` before layer 4, parked at X0 Y0, new filament purged, print resumed with `resume_job`.
 
-## What happens during a print
+## What happens during a print: who does what
 
-1. `M600` (from the G-code, from the slicer, or sent as `send_gcode M600`) pauses the print and runs your macro; the machine parks.
-2. The supervisor reports `filament-change`; the AI tells you.
-3. You swap the filament by hand and check that it feeds.
-4. You tell the AI (or answer on the machine / in DWC yourself). `acknowledge_message` asks you for approval before it sends `M292`.
-5. The macro continues (purge), and the print is resumed with the usual `resume_job` (the checks of rule 23 apply).
+| Step | Machine / server | AI | You |
+|---|---|---|---|
+| 1 | `M600` in the G-code pauses the print and runs `filament-change.g` (retract, lift, park). The message appears on the machine and in DWC | Sees the event `filament-change` in `job_status` and tells you. Offers the prompt `filament_change_assistant` | Stay at the machine, keep your fingers away from the hot nozzle |
+| 2 | Waits. The nozzle stays hot (after 5 minutes `long-pause-hot` warns) | Explains the steps, may look at the spool with a camera | **Take out the old filament, load the new one and push until it is fed.** For another colour or material: purge about 50 mm and throw it away. Hurry |
+| 3 | | | **Answer the message** in one of two ways: press **OK** yourself on the machine or in DWC (the AI notices that the message closed), **or** tell the AI "done" |
+| 4 | If you told the AI: the server asks you to approve, then sends `M292` (OK). The macro continues (purge) | Calls `acknowledge_message` only after you said you are done | Approve the question |
+| 5 | | Asks whether the print should continue, then `resume_job` (checks of rule 23) | Say yes. Keep your hands out of the print area: the head moves back to the part |
+
+Pressing OK means: "the filament is loaded and fed." Do not press it earlier, because the macro then purges and the print goes on.
 
 ## Changing the colour or material: purge and throw away
 

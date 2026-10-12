@@ -33,6 +33,7 @@ This server is the second layer. It replaces neither an emergency stop nor super
 | 23 | `cancel_job` pauses first; `resume_job` refuses before the first layer and with a cold nozzle; replies starting with `Error` from the Duet become errors | `jobcontrol.ts`, `duet.ts` |
 | 24 | Speed profile only between 10 and 150 %; the server sends `M220` only when a step changes and resets to 100 % after the job if it set the speed itself | `speedprofile.ts` |
 | 25 | Messages of the machine (M291, filament change after M600) appear in `job_status` and as supervisor events. They are answered only by `acknowledge_message` after the human approved (M292, also blocked in `send_gcode` without approval); boxes that need a value are left to the human | `messagebox.ts`, `supervisor.ts`, `index.ts`, `guard.ts` |
+| 26 | Long pause with a hot nozzle: after `DUET_PAUSE_HOT_MINUTES` (default 5, 0 = off) the supervisor warns (`long-pause-hot`), after three times as long it raises an error. It only reports; the human decides (resume, or cancel and heaters off) | `supervisor.ts` |
 
 ## Planned
 - A fallback for when the MCP server itself is not running (Claude closed, PC off): the Duet then keeps printing on its own. This can only be solved in the firmware (filament monitor, macros, time limits), not in the server.

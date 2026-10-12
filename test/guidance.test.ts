@@ -48,7 +48,7 @@ describe("what a fresh client sees (simulated Duet)", () => {
   it("offers the prompts and fills in their arguments", async () => {
     const { client } = await bootServer({ readOnly: true });
     const names = (await client.listPrompts()).prompts.map((p) => p.name).sort();
-    expect(names).toEqual(["bed_leveling_assistant", "camera_check", "first_layer_profile", "pre_print_check", "start_print_supervised", "troubleshoot_connection"]);
+    expect(names).toEqual(["bed_leveling_assistant", "camera_check", "filament_change_assistant", "first_layer_profile", "pre_print_check", "start_print_supervised", "troubleshoot_connection"]);
     const p = await client.getPrompt({ name: "pre_print_check", arguments: { file: "D:/g/cube.gcode", nozzle: "0.6" } });
     const t = (p.messages[0].content as any).text as string;
     expect(t).toMatch(/cube\.gcode/);

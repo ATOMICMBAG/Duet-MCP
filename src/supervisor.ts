@@ -37,11 +37,12 @@ export interface SupervisorConfig {
   runawayMargin: number; // C above target once settled
   settleTool: number; // |current - target| within this counts as reached
   settleBed: number;
+  pauseHotMinutes: number; // a pause with a hot nozzle lasts this long: warn (0 = off)
 }
 
 export const DEFAULT_SUPERVISOR: SupervisorConfig = {
   devTool: 15, devBed: 10, devSeconds: 45, heatupMinutes: 8, stallSeconds: 180, stallAction: "warn",
-  maxTool: 260, maxBed: 100, runawayMargin: 25, settleTool: 5, settleBed: 3,
+  maxTool: 260, maxBed: 100, runawayMargin: 25, settleTool: 5, settleBed: 3, pauseHotMinutes: 5,
 };
 
 export function supervisorConfigFromEnv(env: Record<string, string | undefined>, maxTemp: { bed: number; tool: number }): SupervisorConfig {
@@ -54,6 +55,7 @@ export function supervisorConfigFromEnv(env: Record<string, string | undefined>,
     heatupMinutes: n(env.DUET_HEATUP_MINUTES, DEFAULT_SUPERVISOR.heatupMinutes),
     stallSeconds: n(env.DUET_STALL_SECONDS, DEFAULT_SUPERVISOR.stallSeconds),
     stallAction: env.DUET_STALL_ACTION === "pause" ? "pause" : "warn",
+    pauseHotMinutes: n(env.DUET_PAUSE_HOT_MINUTES, DEFAULT_SUPERVISOR.pauseHotMinutes),
     maxTool: maxTemp.tool,
     maxBed: maxTemp.bed,
   };
@@ -76,6 +78,7 @@ export class JobSupervisor {
   private lastFile?: string;
   private lastUpTime?: number;
   private lastMessage?: string;
+  private hotPauseSince?: number;
 
   constructor(private cfg: SupervisorConfig = DEFAULT_SUPERVISOR) {}
 
@@ -99,6 +102,7 @@ export class JobSupervisor {
         this.fired.clear();
         this.heaters = [];
         this.lastMessage = undefined;
+        this.hotPauseSince = undefined;
         this.prevStatus = "idle"; // do not additionally report "job ended early"
         this.lastPos = -1;
       }
@@ -139,7 +143,7 @@ export class JobSupervisor {
       if (s.messageBox) {
         const m = s.messageBox;
         const text = `${m.title ? `${m.title}: ` : ""}${m.message}`.trim();
-        if (waitsForAnswer(m) && isFilamentRelated(m)) say("warning", "filament-change", `The machine asks for a filament action and waits: ${text}. Tell the user; acknowledge_message only with their approval.`);
+        if (waitsForAnswer(m) && isFilamentRelated(m)) say("warning", "filament-change", `The machine asks for a filament action and waits: ${text}. Tell the user to do it by hand and to press OK only when the filament is loaded and fed (on the machine or in DWC), or to tell you when they are done; then you may call acknowledge_message (the user is asked to approve). Remind them to hurry: the nozzle is hot.`);
         else if (waitsForAnswer(m)) say("warning", "message-box", `The machine shows a message and waits for an answer: ${text}.`);
         else say("info", "message-box", `The machine shows a message: ${text}.`);
       } else if (this.lastMessage !== undefined) say("info", "message-closed", "The message on the machine was answered or closed.");
@@ -194,6 +198,16 @@ export class JobSupervisor {
           this.cfg.stallAction === "pause" ? [{ type: "pause", reason: "no progress" }] : undefined);
       }
     }
+    // --- a pause with a hot nozzle that goes on and on (filament change, forgotten pause): the filament in the hot end suffers
+    const hotTool = s.heaters.find((h) => h.role === "tool" && h.target > 0 && h.current > 150);
+    if ((s.status === "paused" || s.status === "pausing") && hotTool && this.cfg.pauseHotMinutes > 0) {
+      this.hotPauseSince ??= s.t;
+      const mins = Math.floor((s.t - this.hotPauseSince) / 60_000);
+      const text = `The job has been paused for ${mins} min with the nozzle at ${Math.round(hotTool.current)} C. Filament sitting in a hot nozzle softens and burns. Continue soon (resume_job), or cancel and switch the heaters off. Ask the user.`;
+      if (mins >= this.cfg.pauseHotMinutes * 3) fire("hotpause3", "error", "long-pause-hot", text);
+      else if (mins >= this.cfg.pauseHotMinutes) fire("hotpause", "warning", "long-pause-hot", text);
+    } else { this.hotPauseSince = undefined; clear("hotpause"); clear("hotpause3"); }
+
     this.prevStatus = s.status;
     return { events, actions };
   }

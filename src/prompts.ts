@@ -9,7 +9,7 @@ export const INSTRUCTIONS = [
   "Start every session with get_machine_info (board, firmware, how far it is verified) and job_status (state, heaters, supervisor events).",
   "Before a print: preflight_gcode on the local file (read-only; optional patched copy), then upload_file, home_axes if axes are not homed, then start_job.",
   "The server asks the human itself for approval (start_job, home_axes, heating, risky G-code). You cannot approve for them and the confirm argument is ignored. If a request is declined or cannot be asked, report it and stop; do not try to work around it.",
-  "Keep answers short. While a job runs, poll job_status every few minutes (not in a tight loop) and use get_camera_snapshot at layer changes (list_cameras says what each view is for; several views can be fetched in one call). The server supervises temperatures and progress on its own; if job_status shows events such as heatup-timeout, temperature-deviation, over-temperature, no-progress, duet-restarted or connection-lost, tell the user at once and do not resume without their consent.",
+  "Keep answers short. While a job runs, poll job_status every few minutes (not in a tight loop) and use get_camera_snapshot at layer changes (list_cameras says what each view is for; several views can be fetched in one call). The server supervises temperatures and progress on its own; if job_status shows events such as heatup-timeout, temperature-deviation, over-temperature, no-progress, long-pause-hot, duet-restarted or connection-lost, tell the user at once and do not resume without their consent.",
   "If the machine shows a message (job_status shows it; a filament change after M600 asks for OK), tell the user what it says and wait: acknowledge_message answers it only after the user did what it asks and approved. emergency_stop is always available. pause_job and cancel_job never need approval. A cancelled job leaves the heaters on: switch them off with send_gcode (M104 T0 S0, M140 S0) when the user wants that.",
   "Without DUET_READ_ONLY=false only the read tools exist. Config, firmware and limit changes are never possible through this server; the user does them in config.g.",
 ].join("\n");
@@ -58,7 +58,7 @@ export const PROMPTS: PromptDef[] = [
       "3. get_camera_snapshot if a camera exists: the bed must be clear. Ask the user if you are unsure.",
       "4. start_job (the user is asked to approve). If it is declined, stop.",
       "5. Supervise: call job_status every few minutes and get_camera_snapshot at layer changes up to layer 7, then now and then. Give short updates (layer, progress, temperatures, speed).",
-      "6. If job_status shows heatup-timeout, temperature-deviation, over-temperature, no-progress, duet-restarted or connection-lost, tell the user immediately. Do not resume a paused job without their consent.",
+      "6. If job_status shows heatup-timeout, temperature-deviation, over-temperature, no-progress, long-pause-hot, duet-restarted or connection-lost, tell the user immediately. Do not resume a paused job without their consent.",
       "7. When the job ends, check that the heaters are off (job_status) and the speed factor is back at 100 %. Offer to switch the heaters off if they are not.",
     ].join("\n"),
   },
@@ -100,6 +100,20 @@ export const PROMPTS: PromptDef[] = [
       "3. Describe only what is visible: first layer lines continuous and flat or not, gaps, stringing, lifting corners, material on the nozzle, part loose on the bed, spool position, filament slack. Say what you cannot see from this angle.",
       "4. A picture is advisory and never proves that the print is fine. If something looks wrong (part loose, spaghetti, nozzle dragging), tell the user immediately and offer pause_job. Do not resume, heat or move anything because of a picture.",
       "5. Cameras that are missing for the focus: say which view would help (see docs/CAMERAS.md for mounting ideas).",
+    ].join("\n"),
+  },
+  {
+    name: "filament_change_assistant",
+    title: "Guide a filament change",
+    description: "Guide the user through a filament change during a print (M600), step by step, with the user doing the hand work and pressing OK.",
+    args: { colour: { description: "New colour or material, if it changes (then the old filament must be purged)", optional: true } },
+    build: (a) => [
+      `Guide the user through a filament change${a.colour ? ` to ${a.colour}` : ""}. The user does the hand work; you watch and explain. Nozzle and bed are HOT: remind the user to hurry, because filament sitting in a hot nozzle softens and burns, and to keep fingers away from the nozzle.`,
+      "1. job_status: the job must be paused (M600 or pause_job) and the machine should show a message such as \"change filament, then OK\" (event filament-change). If no message is shown, say so and ask the user how they paused.",
+      "2. Tell the user the steps, one at a time: (a) take out the old filament, (b) load the new filament and push it until it is fed, (c) " + (a.colour ? "purge about 50 mm at the park position and throw the purge away (old colour is still in the nozzle), (d) " : "") + "press OK on the machine or in DWC themselves, OR tell you they are done.",
+      "3. If the user tells you they are done: ask them to confirm that the filament is loaded and fed, then call acknowledge_message (the user is asked to approve). If they pressed OK themselves, job_status shows the message closed; do not answer it again.",
+      "4. A camera view of the spool and filament path can help: get_camera_snapshot, and describe only what is visible.",
+      "5. When the message is closed and the machine has finished purging, ask the user if the print should continue, then resume_job. If the pause lasts long, long-pause-hot warns: cancel_job and heaters off are the alternative.",
     ].join("\n"),
   },
   {

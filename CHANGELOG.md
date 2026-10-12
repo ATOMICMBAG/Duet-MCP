@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/), versions follow 
 
 ### Added
 - Message box of the machine (`M291`, filament change after `M600`): shown in `job_status` and as supervisor event (`message-box`, `filament-change`), answered by `acknowledge_message` after the user approved; `M292` needs approval in `send_gcode` too.
+- Supervisor warns when a pause with a hot nozzle lasts too long (`long-pause-hot`, `DUET_PAUSE_HOT_MINUTES`).
+- Prompt `filament_change_assistant`: the filament change in clear steps (who does what).
 - Cameras: `list_cameras`, several views in one `get_camera_snapshot` call, camera notes (`DUET_CAMERA_NOTES`), picture width (`DUET_CAMERA_WIDTH`), brightness check, prompt `camera_check`, `docs/CAMERAS.md`.
 
 ## [0.1.0] - not released yet

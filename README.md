@@ -76,7 +76,7 @@ More settings (supervisor thresholds, confirmation mode, speed profile) are list
 
 ## Tools
 
-Plus **6 prompts** (workflow templates) and **4 resources** (profile, `config.g` with passwords hidden, settings, recent events).
+Plus **7 prompts** (workflow templates) and **4 resources** (profile, `config.g` with passwords hidden, settings, recent events).
 
 - **Read:** `get_status`, `get_machine_profile`, `get_machine_info`, `get_sensors`, `list_files`, `read_file` (passwords hidden), `get_endstops`, `get_camera_snapshot` (several views at once), `list_cameras`, `list_local_cameras`, `preflight_gcode`, `job_status`, `emergency_stop`.
 - **Control** (only with `DUET_READ_ONLY=false`): `send_gcode` (guarded), `home_axes`, `start_job`, `pause_job`, `resume_job`, `cancel_job`, `upload_file`, `set_speed_profile`, `acknowledge_message` (answers the machine's message box, for example during a filament change, after your approval; see [docs/FILAMENT_CHANGE.md](docs/FILAMENT_CHANGE.md)).
