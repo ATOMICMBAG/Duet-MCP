@@ -68,10 +68,23 @@ describe("archiveImage", () => {
     expect(html).toMatch(/2 pictures kept/);
     expect(html.indexOf("Latest")).toBeLessThan(html.indexOf("<figure>"));
     expect(html).toMatch(/Latest<\/b>: 2026-10-12 17:43:09 &middot; spool/);
+    expect(html).toMatch(/<img src="data:image\/jpeg;base64,/); // the pictures are inside the page, no links to files next to it
+    expect(html).not.toMatch(/(?:src|href)="[^d#][^"]*\.(jpg|png)"/);
     expect(html).toMatch(/layer 2/);
     expect(html).toMatch(/Side &lt;view&gt; &amp; &quot;close&quot;/);
     expect(html).not.toMatch(/Side <view>/);
     expect(html).not.toMatch(/https?:\/\//);
+  });
+});
+
+describe("older pictures", () => {
+  it("embeds the newest 13 and lists the rest by name", () => {
+    const dir = tmp();
+    for (let s = 0; s < 16; s++) archiveImage(dir, 200, { camera: "bed", data: jpg(s), mimeType: "image/jpeg" }, at(s));
+    const html = readFileSync(join(dir, "index.html"), "utf8");
+    expect(html.match(/data:image\/jpeg;base64,/g)).toHaveLength(13);
+    expect(html).toMatch(/3 older pictures are in the folder/);
+    expect(html).toMatch(/2026-10-12_17-43-02_bed\.jpg/);
   });
 });
 

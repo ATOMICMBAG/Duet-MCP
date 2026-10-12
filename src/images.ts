@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 /**
@@ -56,9 +56,18 @@ export function archiveImage(dir: string, keep: number, img: ArchiveInput, now =
   return { path, file, sha256: createHash("sha256").update(img.data).digest("hex"), bytes: img.data.length, indexPath };
 }
 
+/** The newest pictures are embedded in the page itself (data URI), so it also works where the pictures next to it cannot be loaded. */
+const EMBED = 12;
+const MIME: Record<string, string> = { jpg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp" };
+function dataUri(dir: string, file: string): string | undefined {
+  try { return `data:${MIME[file.split(".").pop()!] ?? "image/jpeg"};base64,${readFileSync(join(dir, file)).toString("base64")}`; } catch { return undefined; }
+}
+
 export function writeIndex(dir: string, notes: Record<string, string>, now = new Date()): string {
   const all = entries(dir);
-  const cell = (e: Entry) => `<figure><a href="${esc(e.file)}"><img loading="lazy" src="${esc(e.file)}" alt=""></a><figcaption>${esc(e.time)} &middot; ${esc(e.camera)}${e.layer ? ` &middot; layer ${e.layer}` : ""}</figcaption></figure>`;
+  const caption = (e: Entry) => `${esc(e.time)} &middot; ${esc(e.camera)}${e.layer ? ` &middot; layer ${e.layer}` : ""}`;
+  const cell = (e: Entry) => { const u = dataUri(dir, e.file); return `<figure>${u ? `<img src="${u}" alt="">` : ""}<figcaption>${caption(e)}</figcaption></figure>`; };
+  const older = all.slice(EMBED + 1);
   const newest = all[0];
   const legend = Object.entries(notes).map(([k, v]) => `<li><b>${esc(k)}</b>: ${esc(v)}</li>`).join("");
   const html = `<!doctype html>
@@ -78,8 +87,9 @@ ul{margin:6px 0 0;padding-left:18px}
 <h1>duet-mcp camera pictures</h1>
 <div class="mute">${all.length} pictures kept &middot; page written ${esc(stamp(now).replace("_", " ").replace(/-(\d\d)-(\d\d)$/, ":$1:$2"))} &middot; refreshes every 10 s &middot; local files only, nothing is sent anywhere</div>
 ${legend ? `<ul>${legend}</ul>` : ""}
-${newest ? `<div class="big"><p><b>Latest</b>: ${esc(newest.time)} &middot; ${esc(newest.camera)}${newest.layer ? ` &middot; layer ${newest.layer}` : ""}</p><a href="${esc(newest.file)}"><img src="${esc(newest.file)}" alt="latest picture"></a></div>
-<div class="grid">${all.slice(1, 49).map(cell).join("")}</div>` : "<p>No pictures yet.</p>"}
+${newest ? `<div class="big"><p><b>Latest</b>: ${caption(newest)}</p>${dataUri(dir, newest.file) ? `<img src="${dataUri(dir, newest.file)}" alt="latest picture">` : "<p>(picture could not be read)</p>"}</div>
+<div class="grid">${all.slice(1, EMBED + 1).map(cell).join("")}</div>
+${older.length ? `<p class="mute">${older.length} older pictures are in the folder <code>${esc(dir)}</code>: ${older.slice(0, 6).map((e) => esc(e.file)).join(", ")}${older.length > 6 ? ", ..." : ""}</p>` : ""}` : "<p>No pictures yet.</p>"}
 </body></html>
 `;
   const p = join(dir, "index.html");

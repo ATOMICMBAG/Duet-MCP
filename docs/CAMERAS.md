@@ -48,7 +48,7 @@ DUET_CAMERA_WIDTH=960
 Every picture that `get_camera_snapshot` hands to the assistant is also **saved** in the folder `duet-mcp-images` in the working folder of the server (the folder where you started your client), as `2026-10-12_17-43-07_bed_L4.jpg` (time, camera, layer while a job runs). Why: so you can see what the assistant looked at, and so the audit log can name the exact picture: each save is a line `camera-image` with the file name and the SHA-256 of the picture (the log is hash-chained, see [SAFETY_RULES.md](../SAFETY_RULES.md) rule 15).
 
 - The newest **200** pictures are kept, older ones are deleted (`DUET_IMAGE_KEEP`). Files in the folder that do not follow the naming scheme are never touched.
-- `latest.jpg` always holds the newest picture, and `index.html` is a **static overview page**: the latest picture large, the others below with time, camera and layer, refreshed every 10 seconds. It uses local files only, no network.
+- `latest.jpg` always holds the newest picture, and `index.html` is a **static overview page**: the latest picture large, the next 12 below with time, camera and layer, older ones listed by name, refreshed every 10 seconds. The newest pictures are **embedded in the page itself**, so it also works where the files next to it cannot be loaded (the desktop app's preview pane shows a local file outside the project folder as a static snapshot and blocks pictures and links next to it; this is why the first version showed no picture). It uses local files only, no network.
 - The folder has its own `.gitignore` (`*`), so the pictures cannot be committed by accident.
 - Switch it off with `DUET_IMAGE_DIR=off`, or choose another folder with `DUET_IMAGE_DIR=<path>`.
 
