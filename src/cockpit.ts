@@ -1,5 +1,6 @@
 import type { Sample, SupervisorEvent } from "./supervisor.js";
 import { describeMessageBox, isFilamentRelated, waitsForAnswer } from "./messagebox.js";
+import type { ActivityEntry } from "./activity.js";
 
 /**
  * The data behind the cockpit page of the live viewer: what runs, what is on, what waits for the user.
@@ -24,6 +25,7 @@ export interface CockpitInput {
   sample?: Sample;
   extra?: CockpitExtra;
   pendingApproval?: { title: string; since: number };
+  activity?: ActivityEntry[]; // newest first
   events: SupervisorEvent[];
   pictures?: { count: number; newest?: PictureInfo; recent: PictureInfo[] };
 }
@@ -68,6 +70,7 @@ export interface CockpitState {
   axes: { letter: string; position: number; homed: boolean }[];
   endstops: { axis: string; triggered: boolean }[];
   pictures: { count: number; newest?: PictureInfo; recent: PictureInfo[] };
+  sent: { t: number; kind: string; source: string; text: string; level: string }[]; // what the machine was sent and what was decided, newest first
   events: { t: number; level: string; code: string; message: string }[];
   hints: string[];
   extraError?: string;
@@ -113,6 +116,7 @@ export function buildCockpit(i: CockpitInput): CockpitState {
     axes: i.extra?.axes ?? [],
     endstops: i.extra?.endstops ?? [],
     pictures: i.pictures ?? { count: 0, recent: [] },
+    sent: (i.activity ?? []).slice(0, 15).map((a) => ({ t: a.t, kind: a.kind, source: a.source, text: a.text, level: a.level })),
     events: [...i.events].slice(-8).reverse().map((e) => ({ t: e.t, level: e.level, code: e.code, message: e.message })),
     hints,
     extraError: i.extra?.error,

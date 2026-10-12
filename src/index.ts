@@ -10,6 +10,8 @@ import { remotePath } from "./paths.js";
 import { appendAudit } from "./audit.js";
 import { archiveImage, discardFolder, imageSettings, isPictureFile, listPictures, stamp } from "./images.js";
 import { startViewer } from "./viewer.js";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { ActivityLog, describeRequest } from "./activity.js";
 import { buildCockpit, type CockpitExtra } from "./cockpit.js";
 import { mergeLive, parseConfig, redactSecrets, type MachineProfile } from "./profile.js";
 import { homeAxes, orderAxes } from "./homing.js";
@@ -36,6 +38,12 @@ const homedMap = async (): Promise<Record<string, boolean>> =>
 loadDotEnv();
 const cfg = loadConfig();
 const duet = new DuetClient(cfg.host, cfg.password);
+// Who is asking right now (a tool, the supervisor ...), and a list of what was sent to the machine, for the cockpit.
+const origin = new AsyncLocalStorage<{ source: string }>();
+const activity = new ActivityLog();
+duet.sourceOf = () => origin.getStore()?.source;
+duet.onRequest = (e) => { const a = describeRequest(e); if (a) activity.add(a); };
+const tagged = (name: string, handler: (a: any, extra?: any) => Promise<any> | any) => (args: any, extra?: any) => origin.run({ source: `assistant: ${name}` }, () => handler(args, extra));
 const server = new McpServer({ name: "duet-mcp", version: "0.1.0" }, { capabilities: { logging: {} }, instructions: INSTRUCTIONS + "\n\n" + sessionFacts({ cameras: Object.keys(cfg.cameras), readOnly: cfg.readOnly, viewerUrl: imageSettings(process.env).viewerPort && imageSettings(process.env).dir ? `http://127.0.0.1:${imageSettings(process.env).viewerPort}/` : undefined }) });
 
 let profile: MachineProfile | undefined;
@@ -69,13 +77,14 @@ async function ask(title: string, message: string, modelConfirmed: boolean) {
   pendingApproval = { title, since: Date.now() };
   const r = await confirmer({ title, message, modelConfirmed }).finally(() => { pendingApproval = undefined; });
   audit({ tool: "confirmation", title, approved: r.approved, via: r.via });
+  activity.add({ t: Date.now(), kind: "decision", source: "you", text: r.approved ? `You approved: ${title.replace(/^duet-mcp: /, "")}` : `Not approved (${r.via}): ${title.replace(/^duet-mcp: /, "")}`, level: r.approved ? "ok" : "warn" });
   return r;
 }
 
 // Control tools are only registered when DUET_READ_ONLY=false (default: true).
 const control = (name: string, description: string, inputSchema: any, handler: (a: any) => Promise<any>, annotations: Record<string, boolean> = {}) => {
   if (cfg.readOnly) return;
-  server.registerTool(name, { description, inputSchema, annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false, ...annotations } }, async (args: any) => {
+  server.registerTool(name, { description, inputSchema, annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false, ...annotations } }, async (args: any) => origin.run({ source: `assistant: ${name}` }, async () => {
     audit({ tool: name, args });
     try {
       const res = await handler(args);
@@ -85,16 +94,16 @@ const control = (name: string, description: string, inputSchema: any, handler: (
       audit({ tool: name, result: "exception", detail: String(e) });
       throw e;
     }
-  });
+  }));
 };
 
 // Tool hints for clients (readOnlyHint / destructiveHint). They are hints only; the real gate is the confirmation in confirm.ts.
 type ToolHandler = (args: any, extra?: any) => Promise<any> | any;
 // DUET_AUDIT_READS=on also writes the read-only calls (name and arguments) to the audit log, to see what an assistant did during a test.
 const journal = (name: string, handler: ToolHandler): ToolHandler => (process.env.DUET_AUDIT_READS === "on" ? (async (args: any, extra: any) => { audit({ tool: name, args, read: true }); return handler(args, extra); }) as ToolHandler : handler);
-const readTool = (name: string, config: any, handler: ToolHandler) => server.registerTool(name, { ...config, annotations: { readOnlyHint: true, openWorldHint: false } }, journal(name, handler) as any);
-const localTool = (name: string, config: any, handler: ToolHandler) => server.registerTool(name, { ...config, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } }, journal(name, handler) as any);
-const safetyTool = (name: string, config: any, handler: ToolHandler) => server.registerTool(name, { ...config, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false } }, handler as any);
+const readTool = (name: string, config: any, handler: ToolHandler) => server.registerTool(name, { ...config, annotations: { readOnlyHint: true, openWorldHint: false } }, tagged(name, journal(name, handler)) as any);
+const localTool = (name: string, config: any, handler: ToolHandler) => server.registerTool(name, { ...config, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } }, tagged(name, journal(name, handler)) as any);
+const safetyTool = (name: string, config: any, handler: ToolHandler) => server.registerTool(name, { ...config, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false } }, tagged(name, handler) as any);
 
 readTool("get_status", { description: "Compact machine state: status, heaters (current/target), axes (position, homed, limits) and the current job (file, layer, progress). For events, supervisor and speed use job_status.", inputSchema: {} }, async () => {
   const [s, axes] = await Promise.all([collect(), duet.model("move.axes")]);
@@ -291,7 +300,10 @@ control(
       if (!a.approved) return fail(`Not approved (${a.via}): ${a.note}. Nothing was sent. Needed approval for: ${v.reasons.join("; ")}`);
       v = checkGcode(gcode, cfg, prof, true, homed); // approved: only the hard rules remain
     }
-    if (!v.ok) return fail(`Rejected by guard: ${v.reason}`);
+    if (!v.ok) {
+      activity.add({ t: Date.now(), kind: "decision", source: "assistant: send_gcode", text: `Refused by the guard: ${gcode.split("\n")[0].trim().slice(0, 60)} - ${v.reason}`, level: "warn" });
+      return fail(`Rejected by guard: ${v.reason}`);
+    }
     return text((await duet.gcode(gcode)) || "ok");
   },
 );
@@ -393,8 +405,10 @@ async function runActions(actions: Action[]) {
   for (const a of actions) {
     if (cfg.readOnly) { notify([{ t: now(), level: "warning", code: "action-skipped", message: `Read-only mode: would have done "${a.type}" (${a.reason}).` }]); continue; }
     try {
-      if (a.type === "pause") { if ((await duet.model("state.status")) === "processing") await duet.gcode("M25"); }
-      else { await duet.gcode("M104 T0 S0"); await duet.gcode("M140 S0"); }
+      await origin.run({ source: `supervisor: ${a.type}` }, async () => {
+        if (a.type === "pause") { if ((await duet.model("state.status")) === "processing") await duet.gcode("M25"); }
+        else { await duet.gcode("M104 T0 S0"); await duet.gcode("M140 S0"); }
+      });
       audit({ tool: "supervisor-action", action: a.type, reason: a.reason });
       notify([{ t: now(), level: "warning", code: "action-done", message: `Done: ${a.type} (${a.reason}).` }]);
     } catch (e) {
@@ -408,7 +422,8 @@ const watchdog = new HeatWatchdog(cfg.readOnly ? 0 : idleMinutes);
 
 let failStreak = 0;
 let compatChecked = false;
-async function superviseTick(): Promise<number> {
+const superviseTick = (): Promise<number> => origin.run({ source: "supervisor" }, superviseTickInner);
+async function superviseTickInner(): Promise<number> {
   try {
     const s = await collect();
     failStreak = 0;
@@ -430,15 +445,14 @@ async function superviseTick(): Promise<number> {
       if (cfg.readOnly) notify([{ t: now(), level: "info", code: "speed-skipped", message: `Read-only mode: would set speed to ${sp.set} % (${sp.reason}).` }]);
       else {
         try {
-          await duet.gcode(`M220 S${sp.set}`);
+          await origin.run({ source: "speed profile" }, () => duet.gcode(`M220 S${sp.set}`));
           audit({ tool: "speed-profile", percent: sp.set, reason: sp.reason });
           notify([{ t: now(), level: "info", code: "speed-set", message: `Speed factor ${sp.set} % (${sp.reason}).` }]);
         } catch (e) { notify([{ t: now(), level: "error", code: "speed-failed", message: `Could not set M220 S${sp.set}: ${(e as Error).message}` }]); }
       }
     }
     if (watchdog.tick({ status: s.status, anyTargetOn: s.heaters.some((h) => h.target > 0) }, s.t)) {
-      await duet.gcode("M140 S0");
-      await duet.gcode("M104 T0 S0");
+      await origin.run({ source: "idle watchdog" }, async () => { await duet.gcode("M140 S0"); await duet.gcode("M104 T0 S0"); });
       notify([{ t: now(), level: "warning", code: "idle-heaters-off", message: `Heaters were on for ${idleMinutes} min without a job; targets set to 0.` }]);
     }
     return s.status !== "idle" || s.heaters.some((h) => h.target > 0) ? pollMs : pollMs * 3; // poll gently: the Duet 2 has little RAM
@@ -586,7 +600,7 @@ async function cockpitCollect() {
   } catch (e) { connection = { ok: false, text: (e as Error).message }; }
   const dir = jobPictures?.dir ?? images.dir;
   const list = dir ? listPictures(dir) : [];
-  return buildCockpit({ now: Date.now(), readOnly: cfg.readOnly, cameras: cameraNames(), connection, sample, extra, pendingApproval, events: recent, pictures: { count: list.length, newest: list[0], recent: list.slice(0, 13) } });
+  return buildCockpit({ now: Date.now(), readOnly: cfg.readOnly, cameras: cameraNames(), connection, sample, extra, pendingApproval, events: recent, activity: activity.recent(15), pictures: { count: list.length, newest: list[0], recent: list.slice(0, 13) } });
 }
 function cockpit(): Promise<unknown> | unknown {
   if (cockpitCache && Date.now() - cockpitCache.at < 2500) return cockpitCache.value;

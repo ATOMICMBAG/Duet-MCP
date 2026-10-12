@@ -17,6 +17,9 @@ export class DuetError extends Error {
   }
 }
 
+/** One finished request, for the cockpit. `source` says who asked (set by the server, see index.ts). */
+export interface RequestEvent { t: number; kind: "gcode" | "upload" | "model" | "list" | "download"; detail: string; ok: boolean; error?: string; source?: string }
+
 export interface ClientOptions {
   retries?: number; // extra attempts for reads when the Duet is unreachable or out of sessions (default 2)
   backoffMs?: number; // first wait, doubled each time (default 1000)
@@ -43,6 +46,8 @@ export class DuetClient {
   private retries: number;
   private backoffMs: number;
   private timeoutMs: number;
+  onRequest?: (e: RequestEvent) => void; // called once per finished request (not per retry)
+  sourceOf?: () => string | undefined; // who is asking right now; read when the request is made
 
   constructor(private host: string, private password: string, opts: ClientOptions = {}) {
     this.retries = opts.retries ?? 2;
@@ -117,13 +122,24 @@ export class DuetClient {
 
   // No "f" flag: it would drop static fields (axis letter/min/max, homed) that we need.
   model(key = "", flags = "d99"): Promise<any> {
-    return this.call(async () => {
+    return this.traced("model", key, () => this.call(async () => {
       const r = await this.raw(`/rr_model?key=${encodeURIComponent(key)}&flags=${flags}`);
       return (await r.json()).result;
-    }, true);
+    }, true));
+  }
+
+  /** Reports a finished request to the hook, whatever the outcome. The hook must never break a request. */
+  private traced<T>(kind: RequestEvent["kind"], detail: string, run: () => Promise<T>): Promise<T> {
+    const source = this.sourceOf?.();
+    const report = (ok: boolean, error?: string) => { try { this.onRequest?.({ t: Date.now(), kind, detail, ok, error, source }); } catch { /* ignore */ } };
+    return run().then((v) => { report(true); return v; }, (e) => { report(false, (e as Error).message); throw e; });
   }
 
   gcode(code: string): Promise<string> {
+    return this.traced("gcode", code, () => this.gcodeRaw(code));
+  }
+
+  private gcodeRaw(code: string): Promise<string> {
     return this.call(async () => {
       await this.raw(`/rr_gcode?gcode=${encodeURIComponent(code)}`);
       // The reply buffer is read once; poll briefly for the reply to be available.
@@ -135,6 +151,10 @@ export class DuetClient {
   }
 
   list(dir: string): Promise<any[]> {
+    return this.traced("list", dir, () => this.listRaw(dir));
+  }
+
+  private listRaw(dir: string): Promise<any[]> {
     return this.call(async () => {
       const files: any[] = [];
       let first = 0;
@@ -148,14 +168,18 @@ export class DuetClient {
   }
 
   download(name: string): Promise<string> {
-    return this.call(async () => (await this.raw(`/rr_download?name=${encodeURIComponent(name)}`)).text(), true);
+    return this.traced("download", name, () => this.call(async () => (await this.raw(`/rr_download?name=${encodeURIComponent(name)}`)).text(), true));
   }
 
   /**
    * Uploads a file with a CRC32 check. A transfer error (the checksum does not match, common on weak WiFi) is retried:
    * unlike a command, an upload can be repeated safely because it only overwrites the same file.
    */
-  async upload(localPath: string, remotePath: string, attempts = 3): Promise<void> {
+  upload(localPath: string, remotePath: string, attempts = 3): Promise<void> {
+    return this.traced("upload", remotePath, () => this.uploadRaw(localPath, remotePath, attempts));
+  }
+
+  private async uploadRaw(localPath: string, remotePath: string, attempts: number): Promise<void> {
     const body = await readFile(localPath);
     const crc = crc32(body).toString(16);
     for (let attempt = 1; ; attempt++) {

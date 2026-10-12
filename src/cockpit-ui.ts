@@ -25,7 +25,7 @@ h1{font-size:18px;margin:0}h2{font-size:14px;margin:0 0 8px;text-transform:upper
 .big img{width:100%;max-width:960px;border:1px solid var(--line);border-radius:6px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:10px}
 .grid figure{margin:0;font-size:12px;color:var(--mute)}.grid img{width:100%;display:block;border-radius:4px;border:1px solid var(--line)}
-ul{margin:0;padding-left:18px}li{margin:2px 0}li.l-warning b{color:var(--warn)}li.l-error b{color:var(--bad)}
+ul{margin:0;padding-left:18px}li{margin:2px 0}ul.sent{list-style:none;padding-left:0;font-size:14px}ul.sent li{padding:3px 0;border-bottom:1px solid var(--line)}ul.sent .src{color:var(--mute)}ul.sent code{font-family:ui-monospace,Consolas,monospace}ul.sent li.l-error code{color:var(--bad)}ul.sent li.l-warn{color:var(--warn)}ul.sent li.decision{font-style:italic}li.l-warning b{color:var(--warn)}li.l-error b{color:var(--bad)}
 </style></head><body>
 <div class="top"><h1>duet-mcp cockpit</h1><div class="mute" id="clock">connecting ...</div></div>
 <div id="banner" class="banner hidden"><b id="banner-title"></b><div id="banner-text"></div></div>
@@ -35,6 +35,7 @@ ul{margin:0;padding-left:18px}li{margin:2px 0}li.l-warning b{color:var(--warn)}l
   <div class="card"><h2>Axes and endstops</h2><div id="axes"></div><div class="leds" id="endstops"></div></div>
 </div>
 <div class="card" style="margin-bottom:12px"><h2>Camera</h2><div class="big" id="camera"></div></div>
+<div class="card" style="margin-bottom:12px"><h2>Sent to the machine, and what was decided</h2><ul id="sent" class="sent"></ul><p class="mute" style="margin:6px 0 0">Only G-code and uploads are listed, newest first. Reading values (status, files) is not.</p></div>
 <div class="card"><h2>Notices</h2><ul id="events"></ul><ul id="hints" class="mute" style="margin-top:8px"></ul></div>
 <script src="app.js"></script>
 </body></html>
@@ -95,6 +96,15 @@ export const COCKPIT_JS = `(function () {
       c.appendChild(g);
       c.appendChild(el("p", "mute", s.pictures.count + " pictures in the folder"));
     }
+
+    var sn = $("sent"); clear(sn);
+    if (!s.sent.length) sn.appendChild(el("li", "mute", "Nothing was sent to the machine in this session yet."));
+    s.sent.forEach(function (x) {
+      var li = el("li", (x.kind === "decision" ? "decision " : "") + "l-" + x.level);
+      li.appendChild(el("span", "src", clock(x.t) + " " + x.source + "  "));
+      li.appendChild(el(x.kind === "decision" ? "span" : "code", "", x.text));
+      sn.appendChild(li);
+    });
 
     var ev = $("events"); clear(ev);
     if (!s.events.length) ev.appendChild(el("li", "mute", "No notices yet."));
