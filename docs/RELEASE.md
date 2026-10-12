@@ -5,7 +5,7 @@ Publishing is the maintainer's decision and the maintainer's action: an assistan
 ## 1. Decide before anything else
 
 - [x] **npm package name:** `@atomicmbag/duet-mcp` (decided 2026-10-13, already in `package.json`; the plain `duet-mcp` belongs to an unrelated project, see [PACKAGING.md](PACKAGING.md)). Check again right before publishing that nobody took it (`npm view @atomicmbag/duet-mcp` answers 404). The commands `duet-mcp` and `duet-mcp-verify-audit` keep their names.
-- [ ] **The npm scope.** The scope `@atomicmbag` needs an npm user or organisation of that name that you control (create it or check it at npmjs.com). `publishConfig.access` is already `public`.
+- [x] **The npm scope.** The npm user `atomicmbag` exists (https://www.npmjs.com/~atomicmbag), so the scope `@atomicmbag` is yours. Turn on two-factor authentication for it (npm account settings) before you publish anything; `publishConfig.access` is already `public`.
 - [ ] **Is alpha the right label?** The README says alpha and tested on one machine only (Duet 2 WiFi, RepRapFirmware 3.2.2). Keep it that way until other boards are reported.
 
 ## 2. Check
@@ -31,7 +31,23 @@ Publishing is the maintainer's decision and the maintainer's action: an assistan
 
 ## 3. Publish
 
-- [ ] npm: `npm login` (with two-factor authentication), then `npm publish` (add `--access public` for a scoped name). `prepublishOnly` builds and runs the tests first. Optional later: publish from GitHub Actions with `--provenance`.
+State of the checks on 2026-10-13 (done by the assistant, all passed): the GitHub Actions runs of the last commits are green (run 35 on `main`); no private data in files or history, only the noreply author; `@atomicmbag/duet-mcp` is free on npm; the packed tarball installs in an empty folder and starts (14 tools, 7 prompts, 4 resources); the `.mcpb` builds (3.8 MB) and passes `mcpb validate`.
+
+The first publication, step by step (each command on its own):
+
+```bash
+npm login
+```
+```bash
+npm publish --dry-run
+```
+```bash
+npm publish
+```
+
+`npm login` opens a browser for your npm account (with two-factor authentication). `npm publish --dry-run` runs `prepublishOnly` (build and the tests) and lists the files without publishing; read the list once (about 43 files, no `.env`, no pictures, no G-code). `npm publish` publishes for real and cannot be undone: a version number can never be used again (you can only deprecate it, or unpublish within 72 hours if nobody depends on it). Then open `https://www.npmjs.com/package/@atomicmbag/duet-mcp` and check the README that npm shows.
+
+- [ ] npm: the three commands above (the access is already `public`, no extra flag needed). `prepublishOnly` builds and runs the tests first. Optional later: publish from GitHub Actions with `--provenance`.
 - [ ] Try it as a user would: in an empty folder `npx -y @atomicmbag/duet-mcp` must start (set `DUET_HOST`), and `claude mcp add duet -- npx -y @atomicmbag/duet-mcp` must register.
 - [ ] `.mcpb` for Claude Desktop: build as described in [PACKAGING.md](PACKAGING.md) (`npm ci --omit=dev` in a clean copy, `mcpb validate`, `mcpb pack`), install it in Claude Desktop once, check that the settings dialog asks for host, password and read-only.
 - [ ] GitHub release: `git tag -a v0.1.0 -m "0.1.0 (alpha)"`, `git push origin v0.1.0`, create the release from the tag with the CHANGELOG text, attach the `.mcpb`, tick "pre-release".
