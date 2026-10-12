@@ -22,6 +22,8 @@ h1{font-size:18px;margin:0}h2{font-size:14px;margin:0 0 8px;text-transform:upper
 .dot{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--off);margin-right:6px;vertical-align:-1px}
 .dot.on{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}
 .leds{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}.hot{color:var(--bad)}
+.views{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.views figure{margin:0}.views canvas{width:100%;border:1px solid var(--line);border-radius:6px;background:#000}.views figcaption{font-size:12px;color:var(--mute)}
+.sub{margin:8px 0 2px;color:var(--mute);font-size:13px}
 .big img{width:100%;max-width:960px;border:1px solid var(--line);border-radius:6px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:10px}
 .grid figure{margin:0;font-size:12px;color:var(--mute)}.grid img{width:100%;display:block;border-radius:4px;border:1px solid var(--line)}
@@ -35,7 +37,10 @@ ul{margin:0;padding-left:18px}li{margin:2px 0}ul.sent{list-style:none;padding-le
   <div class="card"><h2>Axes and endstops</h2><div id="axes"></div><div class="leds" id="endstops"></div></div>
 </div>
 <div class="card" style="margin-bottom:12px"><h2>Camera</h2><div class="big" id="camera"></div></div>
+<div class="card hidden" id="crops-card" style="margin-bottom:12px"><h2>Views</h2><div class="views" id="crops"></div><p class="mute" style="margin:6px 0 0">Cut-outs of the camera picture, zoomed. Nothing is analysed: compare them with the values above.</p></div>
 <div class="card" style="margin-bottom:12px"><h2>Sent to the machine, and what was decided</h2><ul id="sent" class="sent"></ul><p class="mute" style="margin:6px 0 0">Only G-code and uploads are listed, newest first. Reading values (status, files) is not.</p></div>
+<div class="card" style="margin-bottom:12px"><h2>Asked</h2><div id="asked"></div><p class="mute" style="margin:6px 0 0">Counts since the server started. Arguments are not kept.</p></div>
+<div class="card" style="margin-bottom:12px"><h2>Server</h2><div id="server"></div></div>
 <div class="card"><h2>Notices</h2><ul id="events"></ul><ul id="hints" class="mute" style="margin-top:8px"></ul></div>
 <script src="app.js"></script>
 </body></html>
@@ -49,6 +54,7 @@ export const COCKPIT_JS = `(function () {
   function clock(ms) { return new Date(ms).toTimeString().slice(0, 8); }
   function row(parent, label, value, cls) { var r = el("div", "row"); r.appendChild(el("span", "", label)); r.appendChild(el("span", cls || "", value)); parent.appendChild(r); }
   var shown = null;
+  var cropShown = {};
 
   function render(s) {
     $("clock").textContent = "updated " + clock(s.t) + (s.readOnly ? " - server is read-only" : "");
@@ -105,6 +111,37 @@ export const COCKPIT_JS = `(function () {
       li.appendChild(el(x.kind === "decision" ? "span" : "code", "", x.text));
       sn.appendChild(li);
     });
+
+    var cc = $("crops-card"); var cr = $("crops");
+    if (!s.crops.length) cc.className = "card hidden";
+    else {
+      cc.className = "card"; cc.style.marginBottom = "12px";
+      if (cr.childNodes.length !== s.crops.length) { clear(cr); cropShown = {}; s.crops.forEach(function (c) { var f = el("figure"); var cv = el("canvas"); cv.id = "crop-" + c.name; f.appendChild(cv); f.appendChild(el("figcaption", "", c.name)); cr.appendChild(f); }); }
+      s.crops.forEach(function (c, n) {
+        var cap = cr.childNodes[n].lastChild;
+        if (!c.file) { cap.textContent = c.name + " - no picture of camera " + c.camera + " yet"; return; }
+        if (cropShown[c.name] === c.file) return;
+        cropShown[c.name] = c.file; cap.textContent = c.name + " - " + c.time;
+        var im = new Image();
+        im.onload = function () { var cv = cr.childNodes[n].firstChild; var sw = c.w * im.naturalWidth, sh = c.h * im.naturalHeight; var k = Math.min(1, 640 / sw); cv.width = Math.max(1, Math.round(sw * k)); cv.height = Math.max(1, Math.round(sh * k)); cv.getContext("2d").drawImage(im, c.x * im.naturalWidth, c.y * im.naturalHeight, sw, sh, 0, 0, cv.width, cv.height); };
+        im.src = "img/" + encodeURIComponent(c.file);
+      });
+    }
+
+    var ak = $("asked"); clear(ak);
+    ak.appendChild(el("div", "sub", "Claude's tool calls"));
+    if (!s.queries.tools.length) ak.appendChild(el("div", "mute", "No tool call yet in this session."));
+    s.queries.tools.forEach(function (x) { row(ak, x.name, x.count + "x, last " + clock(x.last)); });
+    ak.appendChild(el("div", "sub", "Asked of the machine (reads)"));
+    if (!s.queries.reads.length) ak.appendChild(el("div", "mute", "Nothing read yet."));
+    s.queries.reads.forEach(function (x) { row(ak, x.source, x.count + "x, " + x.perMinute + "/min, last " + clock(x.last)); ak.appendChild(el("div", "mute", x.what.join(", "))); });
+
+    var sv = $("server"); clear(sv);
+    if (s.server) {
+      row(sv, "Version", s.server.version); row(sv, "Mode", s.server.readOnly ? "read-only" : "control enabled"); row(sv, "Approvals", s.server.confirmMode);
+      row(sv, "Supervisor", s.server.supervisor); row(sv, "Cameras", String(s.server.cameras)); row(sv, "Periodic pictures", s.server.pictureIntervalSeconds ? "every " + s.server.pictureIntervalSeconds + " s while a job runs" : "off");
+      row(sv, "Server running", Math.max(0, Math.round((s.t - s.server.startedAt) / 60000)) + " min");
+    }
 
     var ev = $("events"); clear(ev);
     if (!s.events.length) ev.appendChild(el("li", "mute", "No notices yet."));

@@ -12,6 +12,8 @@ import { archiveImage, discardFolder, imageSettings, isPictureFile, listPictures
 import { startViewer } from "./viewer.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { ActivityLog, describeRequest } from "./activity.js";
+import { QueryStats } from "./queries.js";
+import { parseCrops } from "./crops.js";
 import { buildCockpit, type CockpitExtra } from "./cockpit.js";
 import { mergeLive, parseConfig, redactSecrets, type MachineProfile } from "./profile.js";
 import { homeAxes, orderAxes } from "./homing.js";
@@ -41,9 +43,11 @@ const duet = new DuetClient(cfg.host, cfg.password);
 // Who is asking right now (a tool, the supervisor ...), and a list of what was sent to the machine, for the cockpit.
 const origin = new AsyncLocalStorage<{ source: string }>();
 const activity = new ActivityLog();
+const stats = new QueryStats();
+const startedAt = Date.now();
 duet.sourceOf = () => origin.getStore()?.source;
-duet.onRequest = (e) => { const a = describeRequest(e); if (a) activity.add(a); };
-const tagged = (name: string, handler: (a: any, extra?: any) => Promise<any> | any) => (args: any, extra?: any) => origin.run({ source: `assistant: ${name}` }, () => handler(args, extra));
+duet.onRequest = (e) => { stats.read(e); const a = describeRequest(e); if (a) activity.add(a); };
+const tagged = (name: string, handler: (a: any, extra?: any) => Promise<any> | any) => (args: any, extra?: any) => { stats.tool(name); return origin.run({ source: `assistant: ${name}` }, () => handler(args, extra)); };
 const server = new McpServer({ name: "duet-mcp", version: "0.1.0" }, { capabilities: { logging: {} }, instructions: INSTRUCTIONS + "\n\n" + sessionFacts({ cameras: Object.keys(cfg.cameras), readOnly: cfg.readOnly, viewerUrl: imageSettings(process.env).viewerPort && imageSettings(process.env).dir ? `http://127.0.0.1:${imageSettings(process.env).viewerPort}/` : undefined }) });
 
 let profile: MachineProfile | undefined;
@@ -85,6 +89,7 @@ async function ask(title: string, message: string, modelConfirmed: boolean) {
 const control = (name: string, description: string, inputSchema: any, handler: (a: any) => Promise<any>, annotations: Record<string, boolean> = {}) => {
   if (cfg.readOnly) return;
   server.registerTool(name, { description, inputSchema, annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false, ...annotations } }, async (args: any) => origin.run({ source: `assistant: ${name}` }, async () => {
+    stats.tool(name);
     audit({ tool: name, args });
     try {
       const res = await handler(args);
@@ -579,6 +584,7 @@ resource("recent-events", "duet://events/recent", "Recent supervisor events", "T
   recent.slice(-50).map((e) => `${new Date(e.t).toISOString()} [${e.level}] ${e.code}: ${e.message}`).join("\n") || "No events yet.");
 
 // Data of the cockpit page: the supervisor's last sample plus a few small reads (axes, endstops, fans, speed), at most every 2.5 s and only while the page is open.
+const viewCrops = parseCrops(process.env.DUET_VIEW_CROPS);
 let cockpitCache: { at: number; value: unknown } | undefined;
 let cockpitBusy: Promise<unknown> | undefined;
 async function cockpitCollect() {
@@ -600,11 +606,18 @@ async function cockpitCollect() {
   } catch (e) { connection = { ok: false, text: (e as Error).message }; }
   const dir = jobPictures?.dir ?? images.dir;
   const list = dir ? listPictures(dir) : [];
-  return buildCockpit({ now: Date.now(), readOnly: cfg.readOnly, cameras: cameraNames(), connection, sample, extra, pendingApproval, events: recent, activity: activity.recent(15), pictures: { count: list.length, newest: list[0], recent: list.slice(0, 13) } });
+  const byCamera: Record<string, (typeof list)[number]> = {};
+  for (const p of list) byCamera[p.camera] ??= p; // newest first, so the first one per camera is the newest
+  return buildCockpit({
+    now: Date.now(), readOnly: cfg.readOnly, cameras: cameraNames(), connection, sample, extra, pendingApproval, events: recent, activity: activity.recent(15),
+    queries: stats.summary(), crops: viewCrops,
+    server: { version: "0.1.0", readOnly: cfg.readOnly, confirmMode: parseConfirmMode(process.env.DUET_CONFIRM), supervisor: process.env.DUET_SUPERVISOR === "off" ? "off" : cfg.readOnly ? "observes only" : "on", cameras: cameraNames().length, pictureIntervalSeconds: images.intervalSeconds, startedAt },
+    pictures: { count: list.length, newest: list[0], recent: list.slice(0, 13), byCamera },
+  });
 }
 function cockpit(): Promise<unknown> | unknown {
   if (cockpitCache && Date.now() - cockpitCache.at < 2500) return cockpitCache.value;
-  cockpitBusy ??= cockpitCollect().then((v) => { cockpitCache = { at: Date.now(), value: v }; return v; }).finally(() => { cockpitBusy = undefined; });
+  cockpitBusy ??= origin.run({ source: "cockpit page" }, cockpitCollect).then((v) => { cockpitCache = { at: Date.now(), value: v }; return v; }).finally(() => { cockpitBusy = undefined; });
   return cockpitBusy;
 }
 

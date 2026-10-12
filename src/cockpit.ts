@@ -1,6 +1,9 @@
 import type { Sample, SupervisorEvent } from "./supervisor.js";
 import { describeMessageBox, isFilamentRelated, waitsForAnswer } from "./messagebox.js";
 import type { ActivityEntry } from "./activity.js";
+import type { QuerySummary } from "./queries.js";
+import type { Crop } from "./crops.js";
+import { cameraSlug } from "./images.js";
 
 /**
  * The data behind the cockpit page of the live viewer: what runs, what is on, what waits for the user.
@@ -26,9 +29,14 @@ export interface CockpitInput {
   extra?: CockpitExtra;
   pendingApproval?: { title: string; since: number };
   activity?: ActivityEntry[]; // newest first
+  queries?: QuerySummary;
+  crops?: Crop[];
+  server?: ServerInfo;
   events: SupervisorEvent[];
-  pictures?: { count: number; newest?: PictureInfo; recent: PictureInfo[] };
+  pictures?: { count: number; newest?: PictureInfo; recent: PictureInfo[]; byCamera?: Record<string, PictureInfo> }; // byCamera: newest picture per camera name as it appears in file names
 }
+
+export interface ServerInfo { version: string; readOnly: boolean; confirmMode: string; supervisor: string; cameras: number; pictureIntervalSeconds: number; startedAt: number }
 
 export interface Banner { level: "info" | "warning" | "error"; title: string; text: string }
 
@@ -71,6 +79,9 @@ export interface CockpitState {
   endstops: { axis: string; triggered: boolean }[];
   pictures: { count: number; newest?: PictureInfo; recent: PictureInfo[] };
   sent: { t: number; kind: string; source: string; text: string; level: string }[]; // what the machine was sent and what was decided, newest first
+  queries: QuerySummary;
+  crops: (Crop & { file?: string; time?: string })[]; // cut-outs of a camera picture, with the newest picture of that camera
+  server?: ServerInfo;
   events: { t: number; level: string; code: string; message: string }[];
   hints: string[];
   extraError?: string;
@@ -116,6 +127,9 @@ export function buildCockpit(i: CockpitInput): CockpitState {
     axes: i.extra?.axes ?? [],
     endstops: i.extra?.endstops ?? [],
     pictures: i.pictures ?? { count: 0, recent: [] },
+    queries: i.queries ?? { reads: [], tools: [], sinceT: i.now },
+    crops: (i.crops ?? []).map((c) => { const p = i.pictures?.byCamera?.[cameraSlug(c.camera)]; return { ...c, file: p?.file, time: p?.time }; }),
+    server: i.server,
     sent: (i.activity ?? []).slice(0, 15).map((a) => ({ t: a.t, kind: a.kind, source: a.source, text: a.text, level: a.level })),
     events: [...i.events].slice(-8).reverse().map((e) => ({ t: e.t, level: e.level, code: e.code, message: e.message })),
     hints,

@@ -27,6 +27,9 @@ export function imageSettings(env: Record<string, string | undefined>, cwd = pro
 const FILE = /^(\d{4})-(\d\d)-(\d\d)_(\d\d)-(\d\d)-(\d\d)_([A-Za-z0-9-]+?)(?:_L(\d+))?(_auto)?(?:-(\d+))?\.(jpg|png|gif|webp)$/;
 const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp" };
 
+/** The camera name as it appears in file names. */
+export const cameraSlug = (s: string) => s.replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "camera";
+
 const pad = (n: number) => String(n).padStart(2, "0");
 export const stamp = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -53,7 +56,7 @@ export function archiveImage(dir: string, keep: number, img: ArchiveInput, now =
   mkdirSync(dir, { recursive: true });
   const gi = join(dir, ".gitignore");
   if (!existsSync(gi)) writeFileSync(gi, "# camera pictures stay out of git\n*\n");
-  const camera = img.camera.replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "camera";
+  const camera = cameraSlug(img.camera);
   const ext = EXT[img.mimeType] ?? "jpg";
   const base = `${stamp(now)}_${camera}${img.layer ? `_L${img.layer}` : ""}${img.auto ? "_auto" : ""}`;
   let file = `${base}.${ext}`;

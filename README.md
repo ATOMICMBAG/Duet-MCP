@@ -72,6 +72,7 @@ Then ask: "Show me the machine info and job status." The server sends the safe w
 | `DUET_AUDIT_LOG`                          | Path of the audit log                                                                 | `duet-mcp-audit.log` |
 | `DUET_CAMERA_NOTES`, `DUET_CAMERA_WIDTH` | What each camera is for (`name=text;...`); picture width in pixels, 0 = original | none / 960 |
 | `DUET_IMAGE_DIR`, `DUET_IMAGE_KEEP` | Folder for the archive of camera pictures handed to the assistant (`off` disables), and how many to keep | `./duet-mcp-images`, 200 |
+| `DUET_VIEW_CROPS` | Cut-outs of a camera picture for the cockpit (filament, spool, board LEDs): `name=camera:x,y,w,h` as fractions, separated by `;` | none |
 | `DUET_VIEWER_PORT` | Live cockpit (monitoring only: banner, machine, heaters, endstops, camera, notices) on `http://127.0.0.1:<port>/` (loopback only, 1024-65535), see [docs/CAMERAS.md](docs/CAMERAS.md) | off |
 | `DUET_IMAGE_INTERVAL_SECONDS`, `DUET_IMAGE_AUTO_KEEP` | Also take a picture every N seconds (min 5) while a job is active, and how many of these to keep | off, 300 |
 | `FFMPEG_PATH`                             | Path to `ffmpeg` (RTSP and local webcam)                                              | `ffmpeg` in PATH     |
