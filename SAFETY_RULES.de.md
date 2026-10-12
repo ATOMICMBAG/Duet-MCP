@@ -22,7 +22,7 @@ Dieser Server ist die zweite Ebene. Er ersetzt weder Notaus noch Aufsicht.
 | 12 | `start_job` nur im Zustand `idle` und wenn alle Achsen referenziert sind | `index.ts` |
 | 13 | Uploads nach `0:/sys` sind gesperrt | `index.ts` |
 | 14 | Passwörter (M551, M587 ...) werden aus gelesenen Dateien geschwärzt | `profile.ts` |
-| 15 | Audit-Log aller Steueraktionen (`duet-mcp-audit.log`, JSON pro Zeile) | `index.ts` |
+| 15 | Audit-Log aller Steueraktionen (`duet-mcp-audit.log`, JSON pro Zeile). Jede Zeile enthält die Prüfsumme der vorherigen, eingefügte, geänderte oder entfernte Zeilen fallen auf (`duet-mcp-verify-audit`); mit `DUET_AUDIT_KEY` ist die Prüfsumme ein HMAC. Kein Schutz gegen Löschen oder komplettes Neuschreiben der Datei | `audit.ts`, `index.ts` |
 | 16 | Anfragen laufen nacheinander (Duet 2 hat wenig RAM und wenige Sitzungen) | `duet.ts` |
 
 | 17 | Homing-Reihenfolge Z, X, Y (Z zuerst, hebt den Kopf vom Bett) | `homing.ts` |

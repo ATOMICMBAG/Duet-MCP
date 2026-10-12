@@ -8,6 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/), versions follow 
 - `upload_file` with a bare file name (for example `cube.gcode`) now stores it in `0:/gcodes` (before, the Duet put it in the root directory and `start_job` did not find it). The answer shows the real path.
 
 ### Added
+- Tamper-evident audit log: each line carries the checksum of the previous one (`duet-mcp-verify-audit` checks it; optional `DUET_AUDIT_KEY` makes it an HMAC).
 - The instructions the server sends at the start now say which cameras are configured and tell the assistant to ask about camera, bed probe, nozzle and material before the first print.
 - `list_local_cameras` shows the devices with the exact `DUET_CAMERAS` line to add; the pre-print prompt asks about a bed probe and offers automatic leveling (`G29`, with approval).
 - Message box of the machine (`M291`, filament change after `M600`): shown in `job_status` and as supervisor event (`message-box`, `filament-change`), answered by `acknowledge_message` after the user approved; `M292` needs approval in `send_gcode` too.

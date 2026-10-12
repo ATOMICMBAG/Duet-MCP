@@ -51,4 +51,4 @@ Look at the checklist below. Say nothing about `preflight_gcode`, `upload_file` 
 
 ## What to report
 
-Copy the tools it called in order (the audit log `duet-mcp-audit.log` lists them) and note every place where it hesitated, guessed, skipped a step or needed your help. Every miss means a tool description, the instructions or a prompt needs to be improved; send the notes (without passwords and IP addresses) to the maintainer or open an issue.
+First run `npx duet-mcp-verify-audit duet-mcp-audit.log` (or `node <path>/dist/verify-audit.js duet-mcp-audit.log`): it must say the chain is intact, otherwise the log contains lines the server did not write. Then copy the tools it called in order (the audit log lists them) and note every place where it hesitated, guessed, skipped a step or needed your help. Every miss means a tool description, the instructions or a prompt needs to be improved; send the notes (without passwords and IP addresses) to the maintainer or open an issue.

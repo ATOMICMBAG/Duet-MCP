@@ -68,6 +68,7 @@ Then ask: "Show me the machine info and job status." The server sends the safe w
 | `DUET_MACROS`                             | Macros allowed for `M98`, comma separated                                             | none                 |
 | `DUET_MAX_BED_TEMP`, `DUET_MAX_TOOL_TEMP` | Upper limits in `send_gcode`                                                          | 100 / 260            |
 | `DUET_HEAT_IDLE_MINUTES`                  | Idle-heater watchdog, 0 = off                                                         | 15                   |
+| `DUET_AUDIT_KEY` | Secret for the audit log checksums (HMAC); without it a plain checksum chain is used | none |
 | `DUET_AUDIT_LOG`                          | Path of the audit log                                                                 | `duet-mcp-audit.log` |
 | `DUET_CAMERA_NOTES`, `DUET_CAMERA_WIDTH` | What each camera is for (`name=text;...`); picture width in pixels, 0 = original | none / 960 |
 | `FFMPEG_PATH`                             | Path to `ffmpeg` (RTSP and local webcam)                                              | `ffmpeg` in PATH     |
@@ -92,6 +93,16 @@ Plus **7 prompts** (workflow templates) and **4 resources** (profile, `config.g`
 | any board                                        | 2.x      | –                   | **not supported** (no object model), clear error message |
 
 `get_machine_info` shows which board and firmware the server talks to and how far that combination is verified. Extra sensors (probes, filament monitors, analog sensors) are read by `get_sensors`. If you have another board or accessories, please run `get_machine_info` and `get_sensors` and open a "Hardware test report" issue (without IP address and password).
+
+## Audit log
+
+Every control action, confirmation and supervisor event is written to `duet-mcp-audit.log` (one JSON per line). Each line contains the checksum of the line before it. To check that nothing was inserted, edited or removed (for example by an assistant that wrote a note into the file):
+
+```bash
+npx duet-mcp-verify-audit duet-mcp-audit.log
+```
+
+Set `DUET_AUDIT_KEY` to make the checksums an HMAC that nobody without the key can rebuild (use the same key when verifying). The chain does not protect against someone who deletes or rewrites the whole file. Logs from before the chain existed are reported as "not verifiable".
 
 ## Development
 

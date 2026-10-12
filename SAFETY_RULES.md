@@ -22,7 +22,7 @@ This server is the second layer. It replaces neither an emergency stop nor super
 | 12 | `start_job` only in state `idle` and when all axes are homed | `index.ts` |
 | 13 | Uploads to `0:/sys` are blocked | `index.ts` |
 | 14 | Passwords (`M551`, `M587` ...) are redacted from files that are read | `profile.ts` |
-| 15 | Audit log of all control actions (`duet-mcp-audit.log`, one JSON per line) | `index.ts` |
+| 15 | Audit log of all control actions (`duet-mcp-audit.log`, one JSON per line). Every line carries the checksum of the line before, so inserted, edited or removed lines are found (`duet-mcp-verify-audit`); with `DUET_AUDIT_KEY` the checksum is an HMAC. It does not protect against someone who deletes or rewrites the whole file | `audit.ts`, `index.ts` |
 | 16 | Requests run one after the other (a Duet 2 has little RAM and few sessions) | `duet.ts` |
 | 17 | Homing order Z, X, Y (Z first, lifts the head off the bed) | `homing.ts` |
 | 18 | Kinematics aware: the XYZ box is only checked for Cartesian/core*. On Delta, SCARA and Polar every absolute move needs `confirm=true` | `guard.ts`, `profile.ts` |

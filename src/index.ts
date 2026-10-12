@@ -7,6 +7,7 @@ import { DuetClient } from "./duet.js";
 import { checkGcode } from "./guard.js";
 import { brightnessLabel, formatLocalCameras, grabFrame, listDshowDevices, processFrame, sourceKind } from "./camera.js";
 import { remotePath } from "./paths.js";
+import { appendAudit } from "./audit.js";
 import { mergeLive, parseConfig, redactSecrets, type MachineProfile } from "./profile.js";
 import { homeAxes, orderAxes } from "./homing.js";
 import { describeCompat, formatCompat } from "./compat.js";
@@ -14,17 +15,17 @@ import { INSTRUCTIONS, PROMPTS, sessionFacts } from "./prompts.js";
 import { makeConfirmer, parseConfirmMode, systemDialog, type ConfirmRequest } from "./confirm.js";
 import { SpeedGovernor, formatSpeedProfile, parseSpeedProfile, type SpeedStep } from "./speedprofile.js";
 import { cancelJob, resumeJob } from "./jobcontrol.js";
-import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
 import { analyzeGcode, applyFixes, formatReport } from "./preflight.js";
 import { HeatWatchdog } from "./watchdog.js";
 import { canAcknowledge, describeMessageBox, parseMessageBox } from "./messagebox.js";
 import { ConnectionTracker, JobSupervisor, supervisorConfigFromEnv, type Action, type HeaterSample, type Sample, type SupervisorEvent } from "./supervisor.js";
 
-// Append-only audit trail of every control action (what was asked, with which args, and what happened).
+// Append-only audit trail of every control action (what was asked, with which args, and what happened). Each line is chained to the one before (see audit.ts, duet-mcp-verify-audit).
 const auditFile = process.env.DUET_AUDIT_LOG ?? "duet-mcp-audit.log";
 const audit = (entry: Record<string, unknown>) => {
-  try { appendFileSync(auditFile, JSON.stringify({ t: new Date().toISOString(), ...entry }) + "\n"); } catch { /* never block a safety action on logging */ }
+  try { appendAudit(auditFile, entry); } catch { /* never block a safety action on logging */ }
 };
 const homedMap = async (): Promise<Record<string, boolean>> =>
   Object.fromEntries((await duet.model("move.axes")).map((a: any) => [a.letter, !!a.homed]));

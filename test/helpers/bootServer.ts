@@ -21,6 +21,7 @@ export interface BootOptions {
 export async function bootServer(o: BootOptions) {
   const mock = await startMockDuet(o.initial);
   const dir = mkdtempSync(join(tmpdir(), "duet-mcp-"));
+  const auditFile = join(dir, "audit.log");
   const mode = o.elicit ?? "accept";
   const transport = new StdioClientTransport({
     command: process.execPath,
@@ -29,7 +30,7 @@ export async function bootServer(o: BootOptions) {
     env: {
       ...(process.env as Record<string, string>),
       DUET_HOST: mock.host, DUET_PASSWORD: "", DUET_READ_ONLY: String(o.readOnly),
-      DUET_POLL_SECONDS: "0.2", DUET_TEMP_DEV_SECONDS: "0.6", DUET_AUDIT_LOG: join(dir, "audit.log"),
+      DUET_POLL_SECONDS: "0.2", DUET_TEMP_DEV_SECONDS: "0.6", DUET_AUDIT_LOG: auditFile,
       DUET_CAMERAS: "", DUET_CAMERA_URL: "",
       DUET_CONFIRM_DIALOG: "never", // tests must never pop up a real dialog on the developer's screen
       ...o.env,
@@ -52,5 +53,5 @@ export async function bootServer(o: BootOptions) {
   };
   const status = async () => (await call("job_status", { events: 20 })).text;
   const until = async (cond: () => boolean, ms = 8000) => { const t0 = Date.now(); while (!cond() && Date.now() - t0 < ms) await new Promise((r) => setTimeout(r, 100)); return cond(); };
-  return { mock, client, call, status, until, prompts };
+  return { mock, client, call, status, until, prompts, auditFile };
 }

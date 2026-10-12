@@ -22,7 +22,8 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "duet-mcp": "dist/index.js"
+    "duet-mcp": "dist/index.js",
+    "duet-mcp-verify-audit": "dist/verify-audit.js"
   },
   "files": [
     "dist",
