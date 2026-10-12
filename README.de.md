@@ -3,7 +3,7 @@
 *English: [README.md](README.md).*
 
 MCP-Server (Model Context Protocol), mit dem Claude Code eine **Duet-Maschine (RepRapFirmware)** über LAN/WLAN bedienen kann:
-Status lesen, Dateien verwalten, Kamerabilder ansehen, Achsen referenzieren, Drucke starten und überwachen. Der Server wirkt als Sicherheitsschicht zwischen Claude und der Maschine.
+Status lesen, Dateien verwalten, Kamerabilder ansehen, Achsen referenzieren, Drucke starten und überwachen, einen Filamentwechsel begleiten. Der Server wirkt als Sicherheitsschicht zwischen Claude und der Maschine und bringt ein **Cockpit** mit, in dem du aus einem anderen Raum siehst, was Maschine und KI tun.
 
 > **Sicherheit zuerst:** Heizungen und Motoren sind gefährlich. Alpha-Software ohne Gewährleistung, nie unbeaufsichtigt betreiben, Notaus in Reichweite halten. Bitte lies [SAFETY.md](SAFETY.md) vor der ersten Benutzung. / *Heaters and motors are dangerous. Alpha software, no warranty, never run unattended. Read [SAFETY.md](SAFETY.md) first.*
 >
@@ -13,12 +13,19 @@ Status lesen, Dateien verwalten, Kamerabilder ansehen, Achsen referenzieren, Dru
 >
 > **Inoffizielles Community-Projekt.** Nicht von Duet3D. Der Name `duet-mcp` bewusst ohne Firmenmarke.
 >
-> **Status: Alpha.** Getestet ist bisher nur eine **Duet 2 WiFi** mit **RepRapFirmware 3.2.x** (Standalone), kartesischer Drucker. Heizungen und Motoren sind gefährlich: nie unbeaufsichtigt betreiben, Notaus in Reichweite halten. Siehe [SAFETY_RULES.de.md](SAFETY_RULES.de.md).
+> **Status: Alpha.** Getestet ist bisher nur eine **Duet 2 WiFi** mit **RepRapFirmware 3.2.x** (Standalone), kartesischer Drucker, mit echten Drucken (auch mit überwachtem Filamentwechsel) und rund 255 automatischen Tests gegen eine simulierte Duet. Heizungen und Motoren sind gefährlich: nie unbeaufsichtigt betreiben, Notaus in Reichweite halten. Siehe [SAFETY_RULES.de.md](SAFETY_RULES.de.md).
+>
+> **Stand (13.10.2026):** Alles aus den Abschnitten A, B und C1 bis C3 des Plans unten ist umgesetzt und getestet. **Noch nicht veröffentlicht:** das npm-Paket `@atomicmbag/duet-mcp` und das `.mcpb` (Checkliste: [docs/RELEASE.md](docs/RELEASE.md)); das Repository ist öffentlich, ein Verzeichnis (glama.ai) hat es von selbst aufgenommen. **Offen beim Besitzer:** Test im VS-Code-Terminal und in der VS-Code-Erweiterung, neue Bilder für die README (Aufbau, Chat mit Viewer), erste Veröffentlichung.
 
 ```
 Handy / PC ──► Claude Code ──► duet-mcp (lokal, stdio) ──► Duet (HTTP, LAN/WLAN)
-                                   └──► Kamera (HTTP / RTSP / lokale Webcam)
+                                   ├──► Kamera (HTTP / RTSP / lokale Webcam)
+                                   └──► Cockpit auf 127.0.0.1 (Beobachtung im Browser)
 ```
+
+![Der Aufbau: 3D-Drucker im Gehäuse mit Duet-2-Platine und das Notebook mit Claude Code](Duet_MCP_Claude.jpg)
+
+![Claude Code (Desktop-App) bei einem überwachten Druck](Duet_MCP_Claude_chat.jpg)
 
 ## Schnellstart
 
@@ -43,6 +50,10 @@ claude mcp add duet -- node "<Pfad>/dist/index.js"
 
 **Standard ist Nur-Lesen.** Steuerwerkzeuge gibt es erst mit `DUET_READ_ONLY=false`.
 
+**Noch nicht auf npm.** Das Paket wird `@atomicmbag/duet-mcp` heißen (der Name `duet-mcp` gehört auf npm einem fremden Projekt: **nicht** `npx duet-mcp` ausführen). Bis zur ersten Veröffentlichung aus dem Quellcode installieren; danach genügt `claude mcp add duet -- npx -y @atomicmbag/duet-mcp`.
+
+**Aus einem anderen Raum zuschauen:** `DUET_VIEWER_PORT=8765` in die `.env` und `http://127.0.0.1:8765/` auf dem PC öffnen, auf dem der Server läuft (Browser, Vorschau-Fenster der Claude-Desktop-App oder Simple Browser in VS Code). Nur Beobachtung, siehe [docs/CAMERAS.md](docs/CAMERAS.md).
+
 ## Einstellungen (Umgebung oder `.env`)
 
 | Variable | Bedeutung | Standard |
@@ -54,18 +65,26 @@ claude mcp add duet -- node "<Pfad>/dist/index.js"
 | `DUET_MACROS` | Erlaubte Makros für `M98`, kommagetrennt | keine |
 | `DUET_MAX_BED_TEMP`, `DUET_MAX_TOOL_TEMP` | Obergrenzen in `send_gcode` | 100 / 260 |
 | `DUET_HEAT_IDLE_MINUTES` | Heizungs-Wächter, 0 = aus | 15 |
+| `DUET_CAMERA_NOTES`, `DUET_CAMERA_WIDTH` | Wofür jede Kamera ist (`name=text;...`); Bildbreite in Pixeln, 0 = Original | keine / 960 |
+| `DUET_IMAGE_DIR`, `DUET_IMAGE_KEEP` | Ordner für das Archiv der Kamerabilder, die der Assistent bekommt (`off` schaltet aus), und wie viele bleiben | `./duet-mcp-images`, 200 |
+| `DUET_IMAGE_INTERVAL_SECONDS`, `DUET_IMAGE_AUTO_KEEP` | Zusätzlich alle N Sekunden ein Bild (mindestens 5) während eines aktiven Drucks, und wie viele davon bleiben | aus, 300 |
+| `DUET_VIEWER_PORT` | Live-Cockpit (nur Beobachtung) auf `http://127.0.0.1:<Port>/` (nur dieser PC, 1024-65535) | aus |
+| `DUET_VIEW_CROPS` | Ausschnitte des Kamerabildes für das Cockpit (Filament, Spule, LEDs): `name=kamera:x,y,b,h` als Bruchteile, mit `;` getrennt | keine |
+| `DUET_PAUSE_HOT_MINUTES` | Warnung, wenn eine Pause mit heißer Düse so lange dauert (nach dem Dreifachen Fehler), 0 = aus | 5 |
 | `DUET_AUDIT_LOG` | Pfad des Audit-Logs | `duet-mcp-audit.log` |
+| `DUET_AUDIT_KEY` | Geheimnis für die Prüfsummen des Audit-Logs (HMAC); ohne: einfache Prüfsummenkette | keines |
+| `DUET_AUDIT_READS` | `on` protokolliert auch die lesenden Werkzeugaufrufe (zum Auswerten von Tests) | aus |
 | `FFMPEG_PATH` | Pfad zu `ffmpeg` (für RTSP und lokale Webcam) | `ffmpeg` im PATH |
 
 ## Werkzeuge (Stand heute)
 
 Dazu **7 Prompts** (Ablaufvorlagen) und **4 Resources** (Profil, `config.g`, Einstellungen, Ereignisse), siehe B5.
-Lesen: `get_status`, `get_machine_profile`, `get_machine_info`, `get_sensors`, `list_files`, `read_file` (Passwörter geschwärzt), `get_endstops`, `get_camera_snapshot` (mehrere Ansichten auf einmal), `list_cameras`, `list_local_cameras`, `preflight_gcode`, `job_status`, `emergency_stop`.
+Lesen: `get_status`, `get_machine_profile`, `get_machine_info`, `get_sensors`, `list_files`, `read_file` (Passwörter geschwärzt), `get_endstops`, `get_camera_snapshot` (mehrere Ansichten auf einmal), `list_cameras`, `list_local_cameras`, `preflight_gcode`, `job_status`, `emergency_stop`, `discard_job_images` (löscht die Bilder des letzten Drucks, nur nach deiner Zustimmung).
 Steuern (nur mit `DUET_READ_ONLY=false`): `send_gcode` (mit Guard), `home_axes`, `start_job`, `pause_job`, `resume_job`, `cancel_job`, `upload_file`, `set_speed_profile`, `acknowledge_message` (beantwortet das Meldungsfenster der Maschine, z. B. beim Filamentwechsel, nach deiner Zustimmung).
 
 ## Kompatibilität
 
-Ehrlicher Stand: **Getestet ist nur eine Duet 2 WiFi mit RepRapFirmware 3.2.2 (Standalone, kartesischer Drucker).** Alles andere ist aus der dokumentierten HTTP-Schnittstelle und dem offiziellen Connector (`@duet3d/connectors`) abgeleitet, aber nicht geprüft. Das Werkzeug `get_machine_info` zeigt, mit welchem Board und welcher Firmware der Server spricht und wie weit das geprüft ist; bei einer nicht unterstützten Kombination warnt der Server beim Start.
+Ehrlicher Stand: **Getestet ist nur eine Duet 2 WiFi mit RepRapFirmware 3.2.2 (Standalone, kartesischer Drucker).** Alles andere ist aus der dokumentierten HTTP-Schnittstelle abgeleitet (der Quelltext des offiziellen Connectors `@duet3d/connectors` diente nur als Vorlage und ist nicht eingebunden), aber nicht geprüft. Das Werkzeug `get_machine_info` zeigt, mit welchem Board und welcher Firmware der Server spricht und wie weit das geprüft ist; bei einer nicht unterstützten Kombination warnt der Server beim Start.
 
 | Board | Firmware | Modus | Stand |
 |---|---|---|---|
@@ -94,6 +113,11 @@ npm run dev       # direkt aus src/ starten
 Reihenfolge ist ein Vorschlag. Jeder Schritt hat eine **Abnahme**, damit man ihn abhaken oder streichen kann.
 Legende: `[x]` erledigt, `[ ]` offen, `[?]` offene Entscheidung.
 
+## Offene Aufgaben des Besitzers (13.10.2026)
+- [ ] **Anzeige in VS Code prüfen** (Terminal mit `claude` und die Claude-Erweiterung): Was erscheint bei einem Kamerabild, und lässt sich das Cockpit im Simple Browser öffnen? Anleitung: Abschnitt "Display in VS Code" in [docs/FRESH_CLAUDE_TEST.md](docs/FRESH_CLAUDE_TEST.md); das Ergebnis kommt hier und in `docs/CAMERAS.md` in die Tabelle.
+- [ ] **README-Bilder ersetzen:** der Aufbau (Drucker, Gehäuse, Notebook; klarer und schöner) und ein Chat-Ausschnitt mit Cockpit/Viewer, damit der Nutzen schneller sichtbar wird. Die Dateien `Duet_MCP_Claude.jpg` und `Duet_MCP_Claude_chat.jpg` im Hauptordner werden von beiden READMEs eingebunden: einfach durch neue Bilder gleichen Namens ersetzen, oder neue Dateinamen in `README.md` und `README.de.md` eintragen. Vorher prüfen: keine IP-Adresse, kein Passwort, keine Personen im Bild. `duet mcp + claude.jpg` (Testbild aus VS Code) wird nirgends benutzt und kann gelöscht werden.
+- [ ] **Erste Veröffentlichung:** `npm login`, `npm publish --dry-run`, `npm publish`, dann `.mcpb`, GitHub-Release, Forum (Schritte in [docs/RELEASE.md](docs/RELEASE.md)).
+
 ## Stand: bereits umgesetzt
 - [x] Zugriff auf Duet (`rr_*`), Sitzung, Anfragen nacheinander (schont die Duet 2)
 - [x] Maschinenprofil aus `config.g` plus Live-Werten der Firmware (Achsgrenzen, Heizungslimits, Kinematik)
@@ -101,7 +125,7 @@ Legende: `[x]` erledigt, `[ ]` offen, `[?]` offene Entscheidung.
 - [x] Referenzieren: Z, X, Y; Freifahren vor dem Anfahren; Zeitüberschreitung löst `M112` aus
 - [x] Kameras: HTTP, MJPEG, RTSP, lokale Webcam (`dshow:`)
 - [x] Audit-Log, Heizungs-Wächter, `.env`, Passwort-Schwärzung, Fehlerantworten der Duet werden zu Fehlern
-- [x] Tests (158), darunter End-to-End gegen eine simulierte Duet, plus ein echter Testlauf auf der Duet (siehe unten)
+- [x] Tests (rund 255), darunter End-to-End gegen eine simulierte Duet, plus echte Testläufe auf der Duet (siehe unten)
 
 ## A. Aus den Wegwerf-Skripten ins Produkt
 - [x] **A0 Bekannte Fehler beheben.** `cancel_job` pausiert einen laufenden Job zuerst (`M25`), dann `M0` (die Firmware lehnt `M0` sonst ab); lässt die Heizziele unverändert. `resume_job` verweigert, wenn vor der ersten Schicht pausiert wurde oder eine Heizung nicht auf Temperatur ist (`resume.g` würde 10 mm in die Luft extrudieren), außer mit `force=true`. Code: `src/jobcontrol.ts`, Tests: `test/jobcontrol.test.ts`.

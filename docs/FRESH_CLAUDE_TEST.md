@@ -52,3 +52,31 @@ Look at the checklist below. Say nothing about `preflight_gcode`, `upload_file` 
 ## What to report
 
 First run `node <path>/dist/verify-audit.js duet-mcp-audit.log` (the `npx` form works only after the package is on npm): it must say the chain is intact, otherwise the log contains lines the server did not write. Then copy the tools it called in order (the audit log lists them) and note every place where it hesitated, guessed, skipped a step or needed your help. Every miss means a tool description, the instructions or a prompt needs to be improved; send the notes (without passwords and IP addresses) to the maintainer or open an issue.
+
+## Display in VS Code (terminal and extension)
+
+Goal: find out what you see in each place when the assistant looks at a camera picture, and whether the cockpit opens. About 10 minutes, read-only: nothing moves or heats.
+
+Preparation: the server is registered for the folder you open (read-only is enough), and the `.env` has `DUET_CAMERAS` and `DUET_VIEWER_PORT=8765`. The cockpit lives as long as the MCP server of **one** Claude session. If two sessions run at the same time (for example the desktop app and VS Code), only the first one gets port 8765; the second continues without the cockpit (it says so on stderr). Close the other session before this test, or give the second one another port.
+
+**A. VS Code terminal with `claude`**
+1. Open the terminal in VS Code (Ctrl+`) and start `claude` in your folder.
+2. Ask: "Please take a camera picture and tell me what you see."
+3. Note: Is the picture shown in the terminal? Is a file path shown? Does Ctrl+click on the path open the picture in an editor tab?
+
+**B. The Claude extension (Spark icon, chat panel)**
+1. Open a chat in the extension, in the same folder.
+2. Ask the same question.
+3. Note: Does the picture appear in the chat? Is the path clickable?
+
+**C. The cockpit in VS Code**
+1. Ctrl+Shift+P, then "Simple Browser: Show", then `http://127.0.0.1:8765/`.
+2. Note: Does the page load, does the clock in the top right keep running, do the pictures show?
+
+Enter the results here (and tell the maintainer, so that `docs/CAMERAS.md` can say it truthfully):
+
+| Where | Picture in the chat or terminal | Path clickable | Cockpit |
+|---|---|---|---|
+| Desktop app (known) | yes, in the chat | yes, opens in the preview pane | yes, live in the preview pane |
+| VS Code terminal | | | |
+| VS Code extension | | | |
