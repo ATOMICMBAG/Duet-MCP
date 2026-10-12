@@ -14,7 +14,7 @@ export type Verdict =
 // Never allowed through send_gcode: firmware/network/credential/config/limit changes. Humans do these.
 export const BLOCKED = /^(M997|M552|M587|M589|M551|M28|M29|M30|M564|M143|M208|M92|M906|M907|M305|M307|M308|M584|M574|M350|M569|M566|M203|M201|M671)$/;
 // Allowed only after a human approved it (see confirm.ts).
-const CONFIRM = /^(M500|M502|M999|M562|M303|M80|M81|M470|M471|M120|M121|G28|G29|G30|G32|G92)$/;
+const CONFIRM = /^(M500|M502|M999|M562|M303|M80|M81|M470|M471|M120|M121|M292|G28|G29|G30|G32|G92)$/;
 const HEAT = /^(M104|M109|M140|M190|M141|M191|G10)$/;
 
 const param = (line: string, letter: string): number | undefined => {

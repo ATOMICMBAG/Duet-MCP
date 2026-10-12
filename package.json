@@ -29,7 +29,7 @@
     "LICENSE",
     "README.md",
     "README.de.md",
-    "docs",
+    "docs/*.md",
     "SAFETY.md",
     "SAFETY_RULES.md",
     "SAFETY_RULES.de.md",

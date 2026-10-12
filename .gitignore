@@ -7,3 +7,7 @@ dist
 *.stl
 frames*/
 *.mcpb
+
+# third-party reference pictures (Duet3D docs), for local use only
+docs/duet*.png
+docs/reference/

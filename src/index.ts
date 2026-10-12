@@ -17,6 +17,7 @@ import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } fro
 import { basename } from "node:path";
 import { analyzeGcode, applyFixes, formatReport } from "./preflight.js";
 import { HeatWatchdog } from "./watchdog.js";
+import { canAcknowledge, describeMessageBox, parseMessageBox } from "./messagebox.js";
 import { ConnectionTracker, JobSupervisor, supervisorConfigFromEnv, type Action, type HeaterSample, type Sample, type SupervisorEvent } from "./supervisor.js";
 
 // Append-only audit trail of every control action (what was asked, with which args, and what happened).
@@ -308,7 +309,7 @@ async function collect(): Promise<Sample> {
     if (!h) return;
     hs.push({ role: roles!.bed.has(i) ? "bed" : roles!.tool.has(i) ? "tool" : "other", current: h.current, target: h.state === "active" ? h.active : h.state === "standby" ? h.standby : 0, state: h.state });
   });
-  return { t: now(), status, heaters: hs, filePosition: job.filePosition ?? 0, fileSize: job.file?.size ?? 0, fileName: job.file?.fileName, layer: job.layer ?? 0, upTime: state.upTime };
+  return { t: now(), status, heaters: hs, filePosition: job.filePosition ?? 0, fileSize: job.file?.size ?? 0, fileName: job.file?.fileName, layer: job.layer ?? 0, upTime: state.upTime, messageBox: parseMessageBox(state.messageBox) };
 }
 
 // Speed profile per layer (M220): DUET_SPEED_PROFILE="1:30,2:50,3:80,6:100" or the set_speed_profile tool.
@@ -382,6 +383,23 @@ if (process.env.DUET_SUPERVISOR !== "off") {
 }
 
 control(
+  "acknowledge_message",
+  "Answer the message box the machine is showing (state.messageBox, shown by M291, for example during a filament change after M600) with M292: action ok, or cancel where the box offers it. The firmware or a macro waits for this answer and then continues, possibly heating or extruding, so the user is asked to approve and must have done what the message says (for example loaded the new filament). " + CONFIRM_NOTE,
+  { action: z.enum(["ok", "cancel"]).default("ok"), confirm: z.boolean().default(false) },
+  async ({ action, confirm }) => {
+    const mb = parseMessageBox(await duet.model("state.messageBox").catch(() => undefined));
+    if (!mb) return fail("The machine shows no message box. Nothing to acknowledge.");
+    if (!canAcknowledge(mb)) return fail(`This message cannot be answered here (${describeMessageBox(mb)}). The user has to answer it on the machine or in DWC.`);
+    if (action === "cancel" && mb.mode !== 3) return fail("This message box has no Cancel button. Use action ok, or ask the user.");
+    const a = await ask("duet-mcp: answer the machine's message", `The machine ${cfg.host} shows:\n${describeMessageBox(mb)}\n\nAnswer ${action === "ok" ? "OK" : "Cancel"}? Only if you did what the message asks (for example loaded the filament). The machine then continues, possibly heating and extruding.`, confirm);
+    if (!a.approved) return fail(`Not approved (${a.via}): ${a.note}. The message stays open.`);
+    await duet.gcode(action === "ok" ? "M292" : "M292 P1");
+    return text(`Message answered with ${action}: ${describeMessageBox(mb)}`);
+  },
+  { destructiveHint: false },
+);
+
+control(
   "set_speed_profile",
   'Set the speed profile per layer, e.g. "1:30,2:50,3:80,6:100" (from layer N on, N % speed via M220; layer 1 is the first layer) or "off". Applied by the server while a job runs, also to a job that is already running; a factor it set is reset to 100 % when the job ends. Speeds outside 10-150 % are rejected.',
   { profile: z.string() },
@@ -413,6 +431,7 @@ readTool("job_status",
       `Status: ${s.status}${s.fileName ? ` | file ${s.fileName}` : ""}${job.layer ? ` | layer ${job.layer}` : ""} | progress ${pct} %${job.timesLeft?.file ? ` | firmware estimate ${Math.round(job.timesLeft.file / 60)} min left` : ""}`,
       ...s.heaters.map((h, i) => `Heater ${i} (${h.role}): ${h.current} C, target ${h.target} C, state ${h.state}`),
       `Speed: factor ${(await speedPct()) ?? "?"} % | profile ${formatSpeedProfile(governor.profile)}`,
+      ...(s.messageBox ? [`MESSAGE ON THE MACHINE: ${describeMessageBox(s.messageBox)}`] : []),
       process.env.DUET_SUPERVISOR === "off"
         ? "Supervisor: OFF (DUET_SUPERVISOR=off)"
         : `Supervisor: ${cfg.readOnly ? "observe only (read-only mode, it reports but never acts)" : "ACTIVE (pauses the job / switches heaters off on problems)"}`,

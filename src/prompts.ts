@@ -10,7 +10,7 @@ export const INSTRUCTIONS = [
   "Before a print: preflight_gcode on the local file (read-only; optional patched copy), then upload_file, home_axes if axes are not homed, then start_job.",
   "The server asks the human itself for approval (start_job, home_axes, heating, risky G-code). You cannot approve for them and the confirm argument is ignored. If a request is declined or cannot be asked, report it and stop; do not try to work around it.",
   "Keep answers short. While a job runs, poll job_status every few minutes (not in a tight loop) and use get_camera_snapshot at layer changes (list_cameras says what each view is for; several views can be fetched in one call). The server supervises temperatures and progress on its own; if job_status shows events such as heatup-timeout, temperature-deviation, over-temperature, no-progress, duet-restarted or connection-lost, tell the user at once and do not resume without their consent.",
-  "emergency_stop is always available. pause_job and cancel_job never need approval. A cancelled job leaves the heaters on: switch them off with send_gcode (M104 T0 S0, M140 S0) when the user wants that.",
+  "If the machine shows a message (job_status shows it; a filament change after M600 asks for OK), tell the user what it says and wait: acknowledge_message answers it only after the user did what it asks and approved. emergency_stop is always available. pause_job and cancel_job never need approval. A cancelled job leaves the heaters on: switch them off with send_gcode (M104 T0 S0, M140 S0) when the user wants that.",
   "Without DUET_READ_ONLY=false only the read tools exist. Config, firmware and limit changes are never possible through this server; the user does them in config.g.",
 ].join("\n");
 

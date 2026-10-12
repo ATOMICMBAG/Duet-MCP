@@ -4,6 +4,8 @@
  * Note: the firmware keeps its own protections (heater fault monitoring, M143 limits); these rules react earlier.
  */
 
+import { isFilamentRelated, messageKey, type MessageBox, waitsForAnswer } from "./messagebox.js";
+
 export interface HeaterSample {
   role: "bed" | "tool" | "other";
   current: number;
@@ -20,6 +22,7 @@ export interface Sample {
   fileName?: string;
   layer?: number; // firmware job.layer, 1 = first layer
   upTime?: number; // seconds since the board booted (state.upTime); a drop means the board restarted
+  messageBox?: MessageBox; // state.messageBox: a message the firmware shows (M291), possibly waiting for an answer
 }
 
 export interface SupervisorConfig {
@@ -72,6 +75,7 @@ export class JobSupervisor {
   private lastRatio = 0;
   private lastFile?: string;
   private lastUpTime?: number;
+  private lastMessage?: string;
 
   constructor(private cfg: SupervisorConfig = DEFAULT_SUPERVISOR) {}
 
@@ -94,6 +98,7 @@ export class JobSupervisor {
         say("warning", "duet-restarted", `The Duet restarted (uptime ${Math.round(s.upTime)} s). Heater targets are 0 and axes are not homed${wasActive ? `; the job that was running at ${Math.round(this.lastRatio * 100)} % is gone (a pause may have left 0:/sys/resurrect.g)` : ""}.`);
         this.fired.clear();
         this.heaters = [];
+        this.lastMessage = undefined;
         this.prevStatus = "idle"; // do not additionally report "job ended early"
         this.lastPos = -1;
       }
@@ -127,6 +132,19 @@ export class JobSupervisor {
     if (s.status === "paused" && (prev === "processing" || prev === "pausing")) say("info", "job-paused", "Job is paused.");
     if (s.status === "halted") fire("halted", "error", "machine-halted", "The machine is halted (emergency stop or firmware error). Restart needed.");
     else clear("halted");
+
+    // --- message box (M291): a filament change (M600) or a macro waits for a human
+    const mk = s.messageBox ? messageKey(s.messageBox) : undefined;
+    if (mk !== this.lastMessage) {
+      if (s.messageBox) {
+        const m = s.messageBox;
+        const text = `${m.title ? `${m.title}: ` : ""}${m.message}`.trim();
+        if (waitsForAnswer(m) && isFilamentRelated(m)) say("warning", "filament-change", `The machine asks for a filament action and waits: ${text}. Tell the user; acknowledge_message only with their approval.`);
+        else if (waitsForAnswer(m)) say("warning", "message-box", `The machine shows a message and waits for an answer: ${text}.`);
+        else say("info", "message-box", `The machine shows a message: ${text}.`);
+      } else if (this.lastMessage !== undefined) say("info", "message-closed", "The message on the machine was answered or closed.");
+      this.lastMessage = mk;
+    }
 
     // --- heaters (all statuses for limits, printing only for time based rules)
     s.heaters.forEach((h, i) => {

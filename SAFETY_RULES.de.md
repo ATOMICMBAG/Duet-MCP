@@ -33,6 +33,7 @@ Dieser Server ist die zweite Ebene. Er ersetzt weder Notaus noch Aufsicht.
 | 22 | Ereignisse (auch Verbindungsverlust, abgelehntes Passwort, Job zu früh beendet) im Audit-Log und in `job_status` | `index.ts` |
 | 23 | `cancel_job` pausiert zuerst; `resume_job` verweigert vor der ersten Schicht und bei kalter Düse; Antworten `Error` der Duet werden zu Fehlern | `jobcontrol.ts`, `duet.ts` |
 | 24 | Geschwindigkeitsprofil nur zwischen 10 und 150 %; der Server setzt `M220` nur bei Stufenwechsel und stellt nach dem Job auf 100 % zurück, wenn er selbst gesetzt hat | `speedprofile.ts` |
+| 25 | Meldungen der Maschine (M291, Filamentwechsel nach M600) erscheinen in `job_status` und als Supervisor-Ereignis. Beantwortet werden sie nur mit `acknowledge_message` nach Zustimmung des Menschen (M292, in `send_gcode` ohne Zustimmung ebenfalls gesperrt); Meldungen, die einen Wert verlangen, bleiben beim Menschen | `messagebox.ts`, `supervisor.ts`, `index.ts`, `guard.ts` |
 
 ## Geplant
 - Rückfallebene, wenn der MCP-Server selbst nicht läuft (Claude beendet, PC aus): Die Duet druckt dann allein weiter. Das lässt sich nur in der Firmware lösen (Filamentsensor, Makros, Zeitlimits), nicht im Server.

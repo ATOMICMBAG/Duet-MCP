@@ -26,6 +26,7 @@ export interface MockState {
   keys: Set<string>; // currently valid session keys
   boards: Record<string, unknown>[]; // object model "boards"
   sensors: Record<string, unknown>; // object model "sensors"
+  messageBox: { mode: number; title: string; message: string; timeout: number } | null; // state.messageBox (M291); M292 clears it
 }
 
 export async function startMockDuet(initial?: Partial<MockState>) {
@@ -52,11 +53,13 @@ export async function startMockDuet(initial?: Partial<MockState>) {
     keys: new Set<string>(),
     boards: [{ name: "Duet 2 WiFi", shortName: "2WiFi", firmwareName: "RepRapFirmware for Duet 2 WiFi/Ethernet", firmwareVersion: "3.2.2" }],
     sensors: { endstops: [{ triggered: false, type: "inputPin" }], probes: [], filamentMonitors: [], analogSensors: [] },
+    messageBox: null,
     ...initial,
   };
   const models: Record<string, () => unknown> = {
     "state.status": () => state.status,
-    state: () => ({ status: state.status, upTime: state.upTime }),
+    "state.messageBox": () => state.messageBox,
+    state: () => ({ status: state.status, upTime: state.upTime, messageBox: state.messageBox }),
     "heat.heaters": () => state.heaters,
     "heat.bedHeaters": () => [0],
     tools: () => [{ heaters: [1] }],
@@ -95,6 +98,7 @@ export async function startMockDuet(initial?: Partial<MockState>) {
       const g = u.searchParams.get("gcode") ?? "";
       state.gcodes.push(g);
       if (g === "M25" && state.status === "processing") state.status = "paused";
+      if (/^M292/.test(g)) state.messageBox = null;
       if (g === "M104 T0 S0") { state.heaters[1].active = 0; state.heaters[1].standby = 0; }
       if (g === "M140 S0") state.heaters[0].active = 0;
       const sf = g.match(/^M220 S(\d+(?:\.\d+)?)$/);
