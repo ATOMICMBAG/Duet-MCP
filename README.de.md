@@ -58,6 +58,15 @@ claude mcp add duet --scope local -e DUET_READ_ONLY=false -- node "C:<path>/Duet
 
 **Standard ist Nur-Lesen.** Steuerwerkzeuge gibt es erst mit `DUET_READ_ONLY=false`.
 
+### Wichtig für den Anfang: einmal einrichten, dann vor jedem Chat prüfen
+
+1. **Einmal registrieren.** `claude mcp add ...` gilt nur für den Ordner, in dem du es ausgeführt hast (`--scope local`). Wähle diesen Ordner einmal und starte deine Chats danach immer dort. Dann kennt Claude `dist/index.js` automatisch. Ein Chat in einem anderen Ordner kennt den Server **nicht** und kann den Drucker nicht bedienen. Für alle Ordner gilt `--scope user`.
+2. **Erst `npm run build`.** Ohne `dist/index.js` gibt es keinen Server.
+3. **Nur-Lesen ist die Voreinstellung.** Claude kann dann Status, Dateien und Kamerabild lesen, aber nichts bewegen, heizen oder drucken. Das ist Absicht: Den Schalter für Steuerwerkzeuge setzt **du**, nicht Claude. Claude ändert diese Einstellung nicht und darf sie nicht umgehen.
+4. **Zum Drucken:** `DUET_READ_ONLY=false` in die `.env` schreiben und speichern, dann den Server neu starten (neuen Chat beginnen oder in Claude Code `/mcp` öffnen und den Server neu verbinden). Die Änderung wirkt erst nach dem Neustart.
+5. **Jeder Start fragt dich.** Vor `start_job` und `home_axes` erscheint ein Dialog, den du selbst bestätigst. Sag Claude außerdem im Chat "go", wenn du am Drucker bist und das Bett frei ist.
+6. **Danach wieder zurückstellen:** Nach dem Druck `DUET_READ_ONLY=true` setzen, damit ein späterer Chat nicht versehentlich druckt.
+
 **Noch nicht auf npm.** Das Paket wird `@atomicmbag/duet-mcp` heißen (der Name `duet-mcp` gehört auf npm einem fremden Projekt: **nicht** `npx duet-mcp` ausführen). Bis zur ersten Veröffentlichung aus dem Quellcode installieren; danach genügt `claude mcp add duet -- npx -y @atomicmbag/duet-mcp`.
 
 **Aus einem anderen Raum zuschauen:** `DUET_VIEWER_PORT=8765` in die `.env` und `http://127.0.0.1:8765/` auf dem PC öffnen, auf dem der Server läuft (Browser, Vorschau-Fenster der Claude-Desktop-App oder Simple Browser in VS Code). Nur Beobachtung, siehe [docs/CAMERAS.md](docs/CAMERAS.md).

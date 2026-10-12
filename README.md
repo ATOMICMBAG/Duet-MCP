@@ -71,6 +71,15 @@ Terminal CLI:
 claude mcp add duet --scope local -e DUET_READ_ONLY=false -- node "C:<path>/Duet3D_MCP/dist/index.js"
 ```
 
+### Read this first: set up once, check at the start of every chat
+
+1. **Register once.** `claude mcp add ...` only applies to the folder where you ran it (`--scope local`). Pick that folder once and always start your chats there; then Claude knows `dist/index.js` automatically. A chat in another folder does **not** know the server and cannot operate the printer. `--scope user` makes it available everywhere.
+2. **Run `npm run build` first.** Without `dist/index.js` there is no server.
+3. **Read-only is the default.** Claude can then read status, files and the camera picture, but cannot move, heat or print. This is deliberate: **you** set the switch for control tools, not Claude. Claude does not change this setting and must not work around it.
+4. **To print:** set `DUET_READ_ONLY=false` in the `.env` and save it, then restart the server (start a new chat, or in Claude Code open `/mcp` and reconnect the server). The change only takes effect after the restart.
+5. **Every start asks you.** Before `start_job` and `home_axes` a dialog appears that you confirm yourself. Also tell Claude "go" in the chat when you are at the printer and the bed is clear.
+6. **Switch back afterwards:** after the print set `DUET_READ_ONLY=true` again, so a later chat cannot print by accident.
+
 **Not on npm yet.** The package will be called `@atomicmbag/duet-mcp` (the plain name `duet-mcp` on npm belongs to an unrelated project, so do not run `npx duet-mcp`). Until the first release is published, install from source as above; after it, `claude mcp add duet -- npx -y @atomicmbag/duet-mcp` will do. For Claude Desktop there will be an `.mcpb` bundle (see [docs/PACKAGING.md](docs/PACKAGING.md)).
 
 Then ask: "Show me the machine info and job status." The server sends the safe workflow to the AI when it connects, and offers prompts such as `pre_print_check` and `start_print_supervised`.
