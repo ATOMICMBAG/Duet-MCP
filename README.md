@@ -18,7 +18,7 @@ Phone / PC ──► Claude ──► duet-mcp (local, stdio) ──► Duet (HT
 
 ![The setup: a 3D printer in its enclosure with a Duet 2 board, and the notebook that runs Claude Code](Duet_MCP_Claude.jpg)
 
-*The author's setup: Cartesian printer in a wooden enclosure with a Duet 2 WiFi, a camera, and the notebook that runs Claude Code.*
+_The author's setup: Cartesian printer in a wooden enclosure with a Duet 2 WiFi, a camera, and the notebook that runs Claude Code._
 
 ## What it does
 
@@ -36,7 +36,11 @@ Phone / PC ──► Claude ──► duet-mcp (local, stdio) ──► Duet (HT
 
 ![A Claude Code chat during a supervised print](Duet_MCP_Claude_chat.jpg)
 
-*Claude Code (desktop app) during a supervised print: the assistant reports the state and shows the camera picture.*
+_Claude Code (desktop app) during a supervised print: the assistant reports the state and shows the camera picture._
+
+![A Claude Code CLI chat during a supervised print](Duet_MCP_Claude_CLI.jpg)
+
+_Claude Code CLI during a supervised print: the assistant reports the state._
 
 ## Quick start
 
@@ -61,6 +65,12 @@ Register it with Claude Code:
 claude mcp add duet -- node "<path>/dist/index.js"
 ```
 
+Terminal CLI:
+
+```bash
+claude mcp add duet --scope local -e DUET_READ_ONLY=false -- node "C:<path>/Duet3D_MCP/dist/index.js"
+```
+
 **Not on npm yet.** The package will be called `@atomicmbag/duet-mcp` (the plain name `duet-mcp` on npm belongs to an unrelated project, so do not run `npx duet-mcp`). Until the first release is published, install from source as above; after it, `claude mcp add duet -- npx -y @atomicmbag/duet-mcp` will do. For Claude Desktop there will be an `.mcpb` bundle (see [docs/PACKAGING.md](docs/PACKAGING.md)).
 
 Then ask: "Show me the machine info and job status." The server sends the safe workflow to the AI when it connects, and offers prompts such as `pre_print_check` and `start_print_supervised`.
@@ -69,25 +79,25 @@ To watch from another room, add `DUET_VIEWER_PORT=8765` to the `.env` and open `
 
 ## Settings (environment or `.env`)
 
-| Variable | Meaning | Default |
-| --- | --- | --- |
-| `DUET_HOST` | IP or host name of the Duet | required |
-| `DUET_PASSWORD` | DWC password | `reprap` |
-| `DUET_READ_ONLY` | `false` enables the control tools | `true` |
-| `DUET_CAMERA_URL`, `DUET_CAMERAS` | Cameras as `name=url,...`; `http(s)://` (photo or MJPEG), `rtsp://`, `dshow:<device>` | none |
-| `DUET_CAMERA_NOTES`, `DUET_CAMERA_WIDTH` | What each camera is for (`name=text;...`); picture width in pixels, 0 = original | none / 960 |
-| `DUET_IMAGE_DIR`, `DUET_IMAGE_KEEP` | Folder for the archive of camera pictures handed to the assistant (`off` disables), and how many to keep | `./duet-mcp-images`, 200 |
-| `DUET_IMAGE_INTERVAL_SECONDS`, `DUET_IMAGE_AUTO_KEEP` | Also take a picture every N seconds (min 5) while a job is active, and how many of these to keep | off, 300 |
-| `DUET_VIEWER_PORT` | Live cockpit (monitoring only) on `http://127.0.0.1:<port>/` (loopback only, 1024-65535), see [docs/CAMERAS.md](docs/CAMERAS.md) | off |
-| `DUET_VIEW_CROPS` | Cut-outs of a camera picture for the cockpit (filament, spool, board LEDs): `name=camera:x,y,w,h` as fractions, separated by `;` | none |
-| `DUET_MACROS` | Macros allowed for `M98`, comma separated | none |
-| `DUET_MAX_BED_TEMP`, `DUET_MAX_TOOL_TEMP` | Upper limits in `send_gcode` | 100 / 260 |
-| `DUET_HEAT_IDLE_MINUTES` | Idle-heater watchdog, 0 = off | 15 |
-| `DUET_PAUSE_HOT_MINUTES` | Warn when a pause with a hot nozzle lasts this long (error after three times), 0 = off | 5 |
-| `DUET_AUDIT_LOG` | Path of the audit log | `duet-mcp-audit.log` |
-| `DUET_AUDIT_KEY` | Secret for the audit log checksums (HMAC); without it a plain checksum chain is used | none |
-| `DUET_AUDIT_READS` | `on` also logs the read-only tool calls (for evaluating a test) | off |
-| `FFMPEG_PATH` | Path to `ffmpeg` (RTSP and local webcam) | `ffmpeg` in PATH |
+| Variable                                              | Meaning                                                                                                                          | Default                  |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `DUET_HOST`                                           | IP or host name of the Duet                                                                                                      | required                 |
+| `DUET_PASSWORD`                                       | DWC password                                                                                                                     | `reprap`                 |
+| `DUET_READ_ONLY`                                      | `false` enables the control tools                                                                                                | `true`                   |
+| `DUET_CAMERA_URL`, `DUET_CAMERAS`                     | Cameras as `name=url,...`; `http(s)://` (photo or MJPEG), `rtsp://`, `dshow:<device>`                                            | none                     |
+| `DUET_CAMERA_NOTES`, `DUET_CAMERA_WIDTH`              | What each camera is for (`name=text;...`); picture width in pixels, 0 = original                                                 | none / 960               |
+| `DUET_IMAGE_DIR`, `DUET_IMAGE_KEEP`                   | Folder for the archive of camera pictures handed to the assistant (`off` disables), and how many to keep                         | `./duet-mcp-images`, 200 |
+| `DUET_IMAGE_INTERVAL_SECONDS`, `DUET_IMAGE_AUTO_KEEP` | Also take a picture every N seconds (min 5) while a job is active, and how many of these to keep                                 | off, 300                 |
+| `DUET_VIEWER_PORT`                                    | Live cockpit (monitoring only) on `http://127.0.0.1:<port>/` (loopback only, 1024-65535), see [docs/CAMERAS.md](docs/CAMERAS.md) | off                      |
+| `DUET_VIEW_CROPS`                                     | Cut-outs of a camera picture for the cockpit (filament, spool, board LEDs): `name=camera:x,y,w,h` as fractions, separated by `;` | none                     |
+| `DUET_MACROS`                                         | Macros allowed for `M98`, comma separated                                                                                        | none                     |
+| `DUET_MAX_BED_TEMP`, `DUET_MAX_TOOL_TEMP`             | Upper limits in `send_gcode`                                                                                                     | 100 / 260                |
+| `DUET_HEAT_IDLE_MINUTES`                              | Idle-heater watchdog, 0 = off                                                                                                    | 15                       |
+| `DUET_PAUSE_HOT_MINUTES`                              | Warn when a pause with a hot nozzle lasts this long (error after three times), 0 = off                                           | 5                        |
+| `DUET_AUDIT_LOG`                                      | Path of the audit log                                                                                                            | `duet-mcp-audit.log`     |
+| `DUET_AUDIT_KEY`                                      | Secret for the audit log checksums (HMAC); without it a plain checksum chain is used                                             | none                     |
+| `DUET_AUDIT_READS`                                    | `on` also logs the read-only tool calls (for evaluating a test)                                                                  | off                      |
+| `FFMPEG_PATH`                                         | Path to `ffmpeg` (RTSP and local webcam)                                                                                         | `ffmpeg` in PATH         |
 
 More settings (supervisor thresholds, confirmation mode, speed profile) are listed with comments in [.env.example](.env.example).
 
@@ -100,13 +110,13 @@ Plus **7 prompts** (workflow templates: `pre_print_check`, `start_print_supervis
 
 ## Compatibility
 
-| Board | Firmware | Mode | Status |
-| --- | --- | --- | --- |
-| Duet 2 WiFi | 3.2.x | standalone | **tested** |
-| Duet 2 WiFi / Ethernet / Maestro | 3.0–3.6 | standalone | expected to work, untested (Duet3D supports the Duet 2 officially only up to 3.6.x; 3.7+ builds for it are unofficial) |
-| Duet 3 Mini 5+, MB6HC, MB6XD (WiFi/Ethernet) | 3.3–3.6 | standalone | expected to work, untested |
-| Duet 3 with single-board computer (Raspberry Pi) | any | SBC (DuetWebServer) | **not supported** (different API, planned) |
-| any board | 2.x | – | **not supported** (no object model), clear error message |
+| Board                                            | Firmware | Mode                | Status                                                                                                                 |
+| ------------------------------------------------ | -------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Duet 2 WiFi                                      | 3.2.x    | standalone          | **tested**                                                                                                             |
+| Duet 2 WiFi / Ethernet / Maestro                 | 3.0–3.6  | standalone          | expected to work, untested (Duet3D supports the Duet 2 officially only up to 3.6.x; 3.7+ builds for it are unofficial) |
+| Duet 3 Mini 5+, MB6HC, MB6XD (WiFi/Ethernet)     | 3.3–3.6  | standalone          | expected to work, untested                                                                                             |
+| Duet 3 with single-board computer (Raspberry Pi) | any      | SBC (DuetWebServer) | **not supported** (different API, planned)                                                                             |
+| any board                                        | 2.x      | –                   | **not supported** (no object model), clear error message                                                               |
 
 `get_machine_info` shows which board and firmware the server talks to and how far that combination is verified. Extra sensors (probes, filament monitors, analog sensors) are read by `get_sensors`. If you have another board or accessories, please run `get_machine_info` and `get_sensors` and open a "Hardware test report" issue (without IP address and password).
 
@@ -124,14 +134,14 @@ Set `DUET_AUDIT_KEY` to make the checksums an HMAC that nobody without the key c
 
 ## Documentation
 
-| | |
-| --- | --- |
-| [SAFETY.md](SAFETY.md), [SAFETY_RULES.md](SAFETY_RULES.md) | Disclaimer, what the server can and cannot detect, hardware requirements, the numbered rules it enforces |
-| [docs/CAMERAS.md](docs/CAMERAS.md) | Camera views and mounting, saved pictures, the cockpit and its settings, privacy |
-| [docs/FILAMENT_CHANGE.md](docs/FILAMENT_CHANGE.md) | Filament change with a message: an example `filament-change.g` and who does what |
-| [docs/FRESH_CLAUDE_TEST.md](docs/FRESH_CLAUDE_TEST.md) | How to test with an assistant that knows nothing about the project |
-| [docs/PACKAGING.md](docs/PACKAGING.md), [docs/RELEASE.md](docs/RELEASE.md) | npm package, Claude Desktop bundle, release checklist |
-| [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md) | How to help, how to report a vulnerability, what changed |
+|                                                                                              |                                                                                                          |
+| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [SAFETY.md](SAFETY.md), [SAFETY_RULES.md](SAFETY_RULES.md)                                   | Disclaimer, what the server can and cannot detect, hardware requirements, the numbered rules it enforces |
+| [docs/CAMERAS.md](docs/CAMERAS.md)                                                           | Camera views and mounting, saved pictures, the cockpit and its settings, privacy                         |
+| [docs/FILAMENT_CHANGE.md](docs/FILAMENT_CHANGE.md)                                           | Filament change with a message: an example `filament-change.g` and who does what                         |
+| [docs/FRESH_CLAUDE_TEST.md](docs/FRESH_CLAUDE_TEST.md)                                       | How to test with an assistant that knows nothing about the project                                       |
+| [docs/PACKAGING.md](docs/PACKAGING.md), [docs/RELEASE.md](docs/RELEASE.md)                   | npm package, Claude Desktop bundle, release checklist                                                    |
+| [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md) | How to help, how to report a vulnerability, what changed                                                 |
 
 ## Development
 
