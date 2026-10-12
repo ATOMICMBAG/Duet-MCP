@@ -36,6 +36,7 @@ DUET_CAMERA_WIDTH=960
 - **Stay out of the travel range:** a camera on the head side must not be hit by the head, the gantry or the bed. Check by hand with the power off.
 - **A fixed, rigid mount** gives comparable pictures over time. Mark the position.
 - **A contrasting background** (for example a blue strip behind the filament) makes the filament easier to see.
+- **The bed may hide the part.** On a printer whose bed moves back at the end (Y bed, like the author's), a camera in front of the machine no longer sees the finished part: it disappears behind the gantry. Place a camera that sees the bed in its rear position as well (from the side or from above), or take the last picture before the end G-code moves the bed.
 - **Phones** can serve as cameras (IP webcam apps) for a first try.
 
 ## What a camera is not
