@@ -2,8 +2,6 @@
 
 An MCP server (Model Context Protocol) that lets an AI assistant such as Claude operate a **Duet machine (RepRapFirmware)** over your LAN/WLAN: read status, manage files, look at camera pictures, home axes, start and supervise prints, and follow a filament change. The server is a safety layer between the AI and the machine, and it comes with a live **cockpit** so that you can watch what the machine and the AI are doing from another room.
 
-_Deutsch: [README.de.md](README.de.md) (mit dem ausführlichen Plan und allen Ergebnissen)._
-
 > **Safety first.** Heaters and motors are dangerous. This is alpha software without any warranty. Never run it unattended and keep the emergency stop within reach. Read [SAFETY.md](SAFETY.md) before the first use, and see [SAFETY_RULES.md](SAFETY_RULES.md) for the rules the server enforces.
 >
 > **Unofficial community project**, not affiliated with Duet3D. License: [MIT](LICENSE).
