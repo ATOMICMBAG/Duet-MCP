@@ -54,6 +54,6 @@ npm publish
 
 ## 4. After
 
-- [ ] Answer in the forum thread (link to the release and the hardware report template) and post the entry for the Community Projects Wiki ([forum-community-wiki-draft.md](forum-community-wiki-draft.md)).
+- [ ] Answer in the forum thread (link to the release and the hardware report template) and post the entry for the Community Projects Wiki ([community/forum-community-wiki-draft.md](community/forum-community-wiki-draft.md)).
 - [ ] Turn on watching for issues; hardware reports are the most valuable input.
 - [ ] Next versions follow SemVer; while the major version is 0, tools and settings may still change, and every change goes into the CHANGELOG.

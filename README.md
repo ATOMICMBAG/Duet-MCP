@@ -14,7 +14,7 @@ Phone / PC ──► Claude ──► duet-mcp (local, stdio) ──► Duet (HT
                               └──► cockpit on 127.0.0.1 (monitoring in your browser)
 ```
 
-![The setup: a 3D printer in its enclosure with a Duet 2 board, and the notebook that runs Claude Code](/pic/Duet_MCP_Claude.jpg)
+![The setup: a 3D printer in its enclosure with a Duet 2 board, and the notebook that runs Claude Code](pic/Duet_MCP_Claude.jpg)
 
 _The author's setup: Cartesian printer in a wooden enclosure with a Duet 2 WiFi, a camera, and the notebook that runs Claude Code._
 
@@ -32,20 +32,19 @@ _The author's setup: Cartesian printer in a wooden enclosure with a Duet 2 WiFi,
 - **Tamper-evident audit log:** every line carries the checksum of the previous one, and `verify-audit.js` finds inserted, edited or removed lines.
 - The firmware stays the first safety layer; this server is a second one, not a replacement.
 
-## Screen
+## Screenshots
 
-_Claude Code (desktop app) during a supervised print: the assistant reports the state and shows the camera picture._
+**Cockpit and chat.** Claude Code (desktop app) on the right, the cockpit in the preview pane on the left, during a supervised print: the assistant reports the state and shows the camera picture, the cockpit shows machine, heaters, endstops and the newest pictures. The chat is in German (the author's language); the assistant answers in the language you write.
 
-_Agent_
-![A Claude Code chat during a supervised print](/pic/Duet_MCP_Claude_chat.jpg)
+![Claude Code desktop app next to the cockpit during a supervised print](pic/Duet_MCP_Claude_chat.jpg)
 
-_Agent - Vision | Filament line and Duet 2WiFi LED detection._
-![A Claude Code chat during a supervised print](/pic/Duet_MCP_Claude_chat_visio.jpg)
+**Zoomed views.** Cut-outs of the camera picture (the filament in front of its blue strip, the LEDs of the Duet 2 board) next to the values from the firmware, so that you can compare what the machine reports with what the camera shows. Nothing is analysed; you do the comparing.
 
-## Claude Code CLI
+![Cockpit with zoomed views of the filament and the board LEDs](pic/Duet_MCP_Claude_chat_visio.jpg)
 
-_Claude Code CLI during a supervised print: the assistant reports the state._
-![A Claude Code CLI chat during a supervised print](/pic/Duet_MCP_Claude_CLI.jpg)
+**Claude Code in the terminal.** The same server in the CLI: the assistant states the board, the heaters and the homing state, and says what it will ask you to approve.
+
+![Claude Code CLI asking about a Duet printer](pic/Duet_MCP_Claude_CLI.jpg)
 
 ## Quick start
 
@@ -153,6 +152,7 @@ Set `DUET_AUDIT_KEY` to make the checksums an HMAC that nobody without the key c
 | [SAFETY.md](SAFETY.md), [SAFETY_RULES.md](SAFETY_RULES.md)                                   | Disclaimer, what the server can and cannot detect, hardware requirements, the numbered rules it enforces |
 | [docs/CAMERAS.md](docs/CAMERAS.md)                                                           | Camera views and mounting, saved pictures, the cockpit and its settings, privacy                         |
 | [docs/FILAMENT_CHANGE.md](docs/FILAMENT_CHANGE.md)                                           | Filament change with a message: an example `filament-change.g` and who does what                         |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | What is done, what is open, and where help is most welcome |
 | [docs/FRESH_CLAUDE_TEST.md](docs/FRESH_CLAUDE_TEST.md)                                       | How to test with an assistant that knows nothing about the project                                       |
 | [docs/PACKAGING.md](docs/PACKAGING.md), [docs/RELEASE.md](docs/RELEASE.md)                   | npm package, Claude Desktop bundle, release checklist                                                    |
 | [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md) | How to help, how to report a vulnerability, what changed                                                 |
@@ -164,3 +164,5 @@ npm test          # unit and end-to-end tests against a simulated Duet, no hardw
 npm run build
 npm run dev       # run straight from src/
 ```
+
+What is done and what is open: [docs/ROADMAP.md](docs/ROADMAP.md). Contributions of all kinds are welcome.

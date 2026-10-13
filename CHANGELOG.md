@@ -29,6 +29,7 @@ First version, verified on a Duet 2 WiFi (RepRapFirmware 3.2.2) with real prints
 - Cameras: `list_cameras`, several views in one `get_camera_snapshot` call, camera notes (`DUET_CAMERA_NOTES`), picture width (`DUET_CAMERA_WIDTH`), brightness check, prompt `camera_check`, `docs/CAMERAS.md`.
 
 ### Fixed (found while testing with real prints and fresh assistants)
+- The cockpit no longer shows "No pictures yet" when a print has just started and its own picture folder is still empty: it keeps showing the newest picture there is, and the zoomed views are cleared when there really is none.
 - `list_files` and `read_file` accept `path` as well as `dir`/`name` (an assistant listed the wrong folder silently with `path`).
 - `upload_file` tries again (up to 3 times) after a transient HTTP 500 from a busy Duet.
 - `M600` and `M226` are refused in `send_gcode`: sent as a command the head stays on the part with a hot nozzle. They belong inside the G-code file.

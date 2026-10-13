@@ -136,3 +136,30 @@ describe("the cockpit through the running server (simulated Duet)", () => {
     } finally { await new Promise<void>((r) => cam.close(() => r())); }
   }, 90000);
 });
+
+describe("cockpit pictures when a print has just started (found in the author's first real use)", () => {
+  const JPEG = Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=", "base64");
+
+  it("keeps showing the newest picture while the folder of the new print is still empty, and serves it", async () => {
+    const cam = createServer((_q, res) => res.writeHead(200, { "content-type": "image/jpeg" }).end(JPEG));
+    await new Promise<void>((r) => cam.listen(0, "127.0.0.1", r));
+    const url = `http://127.0.0.1:${(cam.address() as any).port}/s.jpg`;
+    const port = await freePort();
+    try {
+      const { client, mock } = await bootServer({ readOnly: true, env: {
+        DUET_VIEWER_PORT: String(port), DUET_CAMERAS: `bed=${url}`, DUET_CAMERA_WIDTH: "0", DUET_IMAGE_DIR: join(mkdtempSync(join(tmpdir(), "pics-")), "p"),
+        DUET_VIEW_CROPS: "filament=bed:0.1,0.1,0.3,0.3",
+      } });
+      await client.callTool({ name: "get_camera_snapshot", arguments: { camera: "bed" } }); // idle: goes to the default folder
+      const api = async () => (await (await fetch(`http://127.0.0.1:${port}/api/cockpit`)).json()) as any;
+      const before: any = await until(async () => { const j = await api(); return j.pictures.newest ? j : undefined; }, 20000);
+
+      mock.state.status = "processing"; // a print starts: its own folder is empty
+      const during: any = await until(async () => { const j = await api(); return j.machine.status === "processing" ? j : undefined; }, 20000);
+      expect(during.pictures.newest?.file).toBe(before.pictures.newest.file); // still the last picture, not "No pictures yet"
+      expect(during.crops[0].file).toBe(before.pictures.newest.file);
+      const img = await fetch(`http://127.0.0.1:${port}/img/${encodeURIComponent(during.pictures.newest.file)}`);
+      expect(img.status).toBe(200); // and the viewer can serve it from where it is
+    } finally { await new Promise<void>((r) => cam.close(() => r())); }
+  }, 90000);
+});

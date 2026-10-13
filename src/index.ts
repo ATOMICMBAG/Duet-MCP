@@ -167,6 +167,10 @@ function trackJobPictures(s: Sample) {
   } else if (!active && jobPictures?.active) jobPictures.active = false;
 }
 const pictureDir = () => (jobPictures?.active ? jobPictures.dir : images.dir); // where a snapshot goes right now
+// The cockpit shows the newest picture there is: the folder of the current print, or if that is still empty (the print just started) the folder of the last picture that was saved, or the default folder.
+let lastSavedDir: string | undefined;
+const hasPictures = (d?: string) => !!d && listPictures(d).length > 0;
+const viewerDir = () => [jobPictures?.dir, lastSavedDir, images.dir].find((d) => hasPictures(d)) ?? jobPictures?.dir ?? images.dir;
 // When did the assistant last look at the bed? The start approval tells the human if it never did (found in a test: the first picture was taken after the start).
 let lastSnapshotAt = 0;
 const cameraNote = () => {
@@ -205,6 +209,7 @@ readTool("get_camera_snapshot", {
         try {
           const layer = lastSample && lastSample.status !== "idle" ? lastSample.layer : undefined;
           const a = archiveImage(pictureDir()!, images.keep, { camera: name, data: f.data, mimeType: f.mimeType, layer, notes: cfg.cameraNotes }, new Date(), images.autoKeep);
+          lastSavedDir = dirname(a.path);
           audit({ tool: "camera-image", camera: name, file: a.file, dir: dirname(a.path), sha256: a.sha256, bytes: a.bytes });
           saved = `. Saved: ${a.path}${overviewShown ? "" : `. Overview page with the latest pictures: ${a.indexPath}`}`;
           overviewShown = true;
@@ -509,6 +514,7 @@ if (images.dir && images.intervalSeconds > 0 && cameraNames().length) {
         try {
           const f = await processFrame(await exclusive(() => grabFrame(cfg.cameras[name])), cfg.cameraWidth ?? 960);
           const a = archiveImage(jobPictures?.dir ?? images.dir!, images.keep, { camera: name, data: f.data, mimeType: f.mimeType, layer: active ? lastSample?.layer : undefined, notes: cfg.cameraNotes, auto: true }, new Date(), images.autoKeep);
+          lastSavedDir = dirname(a.path);
           audit({ tool: "camera-image", camera: name, file: a.file, dir: dirname(a.path), sha256: a.sha256, bytes: a.bytes, auto: true });
           failures = 0;
         } catch (e) {
@@ -604,7 +610,7 @@ async function cockpitCollect() {
       extra.speedPct = await speedPct();
     } catch (e) { extra.error = (e as Error).message; }
   } catch (e) { connection = { ok: false, text: (e as Error).message }; }
-  const dir = jobPictures?.dir ?? images.dir;
+  const dir = viewerDir();
   const list = dir ? listPictures(dir) : [];
   const byCamera: Record<string, (typeof list)[number]> = {};
   for (const p of list) byCamera[p.camera] ??= p; // newest first, so the first one per camera is the newest
@@ -625,7 +631,7 @@ function cockpit(): Promise<unknown> | unknown {
 if (images.dir && images.viewerPort) {
   const v = await startViewer({
     port: images.viewerPort,
-    getDir: () => jobPictures?.dir ?? images.dir,
+    getDir: viewerDir,
     getNotes: () => cfg.cameraNotes ?? {},
     getCockpit: cockpit,
     getStatus: () => {

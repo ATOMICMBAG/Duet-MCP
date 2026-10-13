@@ -119,7 +119,7 @@ export const COCKPIT_JS = `(function () {
       if (cr.childNodes.length !== s.crops.length) { clear(cr); cropShown = {}; s.crops.forEach(function (c) { var f = el("figure"); var cv = el("canvas"); cv.id = "crop-" + c.name; f.appendChild(cv); f.appendChild(el("figcaption", "", c.name)); cr.appendChild(f); }); }
       s.crops.forEach(function (c, n) {
         var cap = cr.childNodes[n].lastChild;
-        if (!c.file) { cap.textContent = c.name + " - no picture of camera " + c.camera + " yet"; return; }
+        if (!c.file) { cap.textContent = c.name + " - no picture of camera " + c.camera + " yet"; var old = cr.childNodes[n].firstChild; old.width = 1; old.height = 1; old.getContext("2d").clearRect(0, 0, 1, 1); delete cropShown[c.name]; return; }
         if (cropShown[c.name] === c.file) return;
         cropShown[c.name] = c.file; cap.textContent = c.name + " - " + c.time;
         var im = new Image();
