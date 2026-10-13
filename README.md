@@ -16,7 +16,7 @@ Phone / PC ──► Claude ──► duet-mcp (local, stdio) ──► Duet (HT
                               └──► cockpit on 127.0.0.1 (monitoring in your browser)
 ```
 
-![The setup: a 3D printer in its enclosure with a Duet 2 board, and the notebook that runs Claude Code](Duet_MCP_Claude.jpg)
+![The setup: a 3D printer in its enclosure with a Duet 2 board, and the notebook that runs Claude Code](/pic/Duet_MCP_Claude.jpg)
 
 _The author's setup: Cartesian printer in a wooden enclosure with a Duet 2 WiFi, a camera, and the notebook that runs Claude Code._
 
@@ -34,13 +34,20 @@ _The author's setup: Cartesian printer in a wooden enclosure with a Duet 2 WiFi,
 - **Tamper-evident audit log:** every line carries the checksum of the previous one, and `verify-audit.js` finds inserted, edited or removed lines.
 - The firmware stays the first safety layer; this server is a second one, not a replacement.
 
-![A Claude Code chat during a supervised print](Duet_MCP_Claude_chat.jpg)
+## Screen
 
 _Claude Code (desktop app) during a supervised print: the assistant reports the state and shows the camera picture._
 
-![A Claude Code CLI chat during a supervised print](Duet_MCP_Claude_CLI.jpg)
+_Agent_
+![A Claude Code chat during a supervised print](/pic/Duet_MCP_Claude_chat.jpg)
+
+_Agent - Vision | Filament line and Duet 2WiFi LED detection._
+![A Claude Code chat during a supervised print](/pic/Duet_MCP_Claude_chat_visio.jpg)
+
+## Claude Code CLI
 
 _Claude Code CLI during a supervised print: the assistant reports the state._
+![A Claude Code CLI chat during a supervised print](/pic/Duet_MCP_Claude_CLI.jpg)
 
 ## Quick start
 
@@ -159,5 +166,3 @@ npm test          # unit and end-to-end tests against a simulated Duet, no hardw
 npm run build
 npm run dev       # run straight from src/
 ```
-
-The step-by-step plan (done and open items, real-hardware findings) is in [README.de.md](README.de.md), in German for now. Contributions of all kinds are welcome.
