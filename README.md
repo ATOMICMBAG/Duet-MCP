@@ -152,7 +152,7 @@ Set `DUET_AUDIT_KEY` to make the checksums an HMAC that nobody without the key c
 | [SAFETY.md](SAFETY.md), [SAFETY_RULES.md](SAFETY_RULES.md)                                   | Disclaimer, what the server can and cannot detect, hardware requirements, the numbered rules it enforces |
 | [docs/CAMERAS.md](docs/CAMERAS.md)                                                           | Camera views and mounting, saved pictures, the cockpit and its settings, privacy                         |
 | [docs/FILAMENT_CHANGE.md](docs/FILAMENT_CHANGE.md)                                           | Filament change with a message: an example `filament-change.g` and who does what                         |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | What is done, what is open, and where help is most welcome |
+| [docs/ROADMAP.md](docs/ROADMAP.md)                                                           | What is done, what is open, and where help is most welcome                                               |
 | [docs/FRESH_CLAUDE_TEST.md](docs/FRESH_CLAUDE_TEST.md)                                       | How to test with an assistant that knows nothing about the project                                       |
 | [docs/PACKAGING.md](docs/PACKAGING.md), [docs/RELEASE.md](docs/RELEASE.md)                   | npm package, Claude Desktop bundle, release checklist                                                    |
 | [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md) | How to help, how to report a vulnerability, what changed                                                 |
@@ -166,3 +166,17 @@ npm run dev       # run straight from src/
 ```
 
 What is done and what is open: [docs/ROADMAP.md](docs/ROADMAP.md). Contributions of all kinds are welcome.
+
+#
+
+# Long-term test result
+
+STL | 3d Printer & Duet WiFi 2 | Claude (chat o. code) | duet-mcp | wireless charger electronics | assembly
+
+<p align="center">
+  <a href="pic/charger/charger1.jpg"><img src="pic/charger/charger1.jpg" width="24%"></a>
+  <a href="pic/charger/charger2.jpg"><img src="pic/charger/charger2.jpg" width="24.6%"></a>
+  <a href="pic/charger/charger3.jpg"><img src="pic/charger/charger3.jpg" width="23.1%"></a>
+  <a href="pic/charger/charger4.jpg"><img src="pic/charger/charger4.jpg" width="21.9%"></a>
+</p>
+ (very close)
