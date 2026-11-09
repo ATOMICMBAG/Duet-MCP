@@ -127,7 +127,7 @@ Plus **7 prompts** (workflow templates: `pre_print_check`, `start_print_supervis
 | ------------------------------------------------ | -------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Duet 2 WiFi                                      | 3.2.x    | standalone          | **tested**                                                                                                             |
 | Duet 2 WiFi / Ethernet / Maestro                 | 3.0–3.6  | standalone          | expected to work, untested (Duet3D supports the Duet 2 officially only up to 3.6.x; 3.7+ builds for it are unofficial) |
-| Duet 3 Mini 5+, MB6HC, MB6XD (WiFi/Ethernet)     | 3.3–3.6  | standalone          | expected to work, untested                                                                                             |
+| Duet 3 Mini 5+, MB6HC, MB6XD (WiFi/Ethernet)     | 3.3–3.6  | standalone          | **tested**                                                                                                             |
 | Duet 3 with single-board computer (Raspberry Pi) | any      | SBC (DuetWebServer) | **not supported** (different API, planned)                                                                             |
 | any board                                        | 2.x      | –                   | **not supported** (no object model), clear error message                                                               |
 
